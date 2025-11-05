@@ -1,0 +1,54 @@
+import i18n from 'i18next';
+import { initReactI18next } from 'react-i18next';
+import LanguageDetector from 'i18next-browser-languagedetector';
+import enTranslations from './locales/en.json';
+import frTranslations from './locales/fr.json';
+import arTranslations from './locales/ar.json';
+
+i18n
+  .use(LanguageDetector)
+  .use(initReactI18next)
+  .init({
+    resources: {
+      en: {
+        translation: enTranslations,
+      },
+      fr: {
+        translation: frTranslations,
+      },
+      ar: {
+        translation: arTranslations,
+      },
+    },
+    fallbackLng: 'en',
+    debug: false,
+    interpolation: {
+      escapeValue: false,
+    },
+    detection: {
+      order: ['localStorage', 'navigator'],
+      caches: ['localStorage'],
+    },
+  });
+
+// Set initial direction based on language
+const updateDocumentDirection = (lang: string) => {
+  if (lang === 'ar') {
+    document.documentElement.setAttribute('dir', 'rtl');
+    document.documentElement.setAttribute('lang', 'ar');
+  } else {
+    document.documentElement.setAttribute('dir', 'ltr');
+    document.documentElement.setAttribute('lang', lang);
+  }
+};
+
+// Set direction on initialization
+updateDocumentDirection(i18n.language || 'en');
+
+// Update direction when language changes
+i18n.on('languageChanged', (lang) => {
+  updateDocumentDirection(lang);
+});
+
+export default i18n;
+
