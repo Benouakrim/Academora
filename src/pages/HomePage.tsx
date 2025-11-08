@@ -319,19 +319,26 @@ export default function HomePage() {
               transition={{ duration: 1, delay: 0.8 }}
             >
               <Link
-                to="/orientation"
-                className="group relative px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full font-semibold text-lg hover:shadow-2xl hover:shadow-purple-500/25 transition-all duration-300 overflow-hidden"
+                to="/register"
+                className="group relative px-8 py-4 bg-gradient-to-r from-primary-500 to-primary-600 rounded-full font-semibold text-lg text-white hover:shadow-2xl hover:shadow-primary-500/25 transition-all duration-300 overflow-hidden"
               >
                 <span className="relative z-10 flex items-center gap-2">
-                  Start Your Journey
+                  Start Guided Registration
                   <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </span>
                 <motion.div
-                  className="absolute inset-0 bg-gradient-to-r from-pink-600 to-purple-600"
+                  className="absolute inset-0 bg-gradient-to-r from-primary-600 to-primary-700"
                   initial={{ x: "100%" }}
                   whileHover={{ x: "0%" }}
                   transition={{ duration: 0.3 }}
                 />
+              </Link>
+              
+              <Link
+                to="/orientation"
+                className="px-8 py-4 border border-white/30 rounded-full font-semibold text-lg text-white hover:bg-white/10 transition-all duration-300 backdrop-blur-sm"
+              >
+                Explore Orientation Hub
               </Link>
               
               <button

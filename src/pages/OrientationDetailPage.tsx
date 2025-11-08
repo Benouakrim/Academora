@@ -103,7 +103,7 @@ export default function OrientationDetailPage() {
               <Link to="/login" className="btn-primary">
                 Log In
               </Link>
-              <Link to="/signup" className="btn-secondary">
+              <Link to="/register" className="btn-secondary">
                 Sign Up
               </Link>
             </div>

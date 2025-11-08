@@ -450,18 +450,27 @@ export default function Navbar({ onAdminMenuToggle, showAdminMenu }: NavbarProps
                 <LogOut className="h-5 w-5 text-gray-400 group-hover:text-red-400 transition-colors" />
               </motion.button>
             ) : (
-              <motion.div
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
+              <>
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <Link
+                    to="/login"
+                    className="flex items-center justify-center w-10 h-10 rounded-full bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-purple-500/20 hover:border-purple-500/50 transition-all duration-300 group"
+                    title="Sign In"
+                  >
+                    <User className="h-5 w-5 text-gray-400 group-hover:text-purple-400 transition-colors" />
+                  </Link>
+                </motion.div>
                 <Link
                   to="/login"
-                  className="flex items-center justify-center w-10 h-10 rounded-full bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-purple-500/20 hover:border-purple-500/50 transition-all duration-300 group"
-                  title="Sign In"
+                  className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-primary-500 to-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-primary-500/30 transition hover:from-primary-600 hover:to-primary-700"
                 >
-                  <User className="h-5 w-5 text-gray-400 group-hover:text-purple-400 transition-colors" />
+                  <Sparkles className="h-4 w-4" />
+                  <span>Create Account</span>
                 </Link>
-              </motion.div>
+              </>
             )}
             
             <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg px-3 py-2">
@@ -717,8 +726,8 @@ export default function Navbar({ onAdminMenuToggle, showAdminMenu }: NavbarProps
                       transition={{ duration: 0.2 }}
                     >
                       <Link
-                        to="/signup"
-                        className="block px-4 py-3 text-gray-300 hover:text-white hover:bg-white/5 rounded-lg transition-all duration-300 font-medium"
+                        to="/login"
+                        className="block px-4 py-3 rounded-lg bg-gradient-to-r from-primary-500 to-primary-600 text-white font-semibold shadow-lg shadow-primary-500/30 transition-all duration-300 hover:from-primary-600 hover:to-primary-700"
                         onClick={() => setIsOpen(false)}
                       >
                         {t('common.signup')}

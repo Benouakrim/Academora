@@ -4,7 +4,7 @@
 
 @layer base {
   body {
-    @apply bg-gray-50 text-gray-900;
+    @apply bg-neutral-50 text-neutral-900;
   }
   
   html[dir="rtl"] {
@@ -22,7 +22,7 @@
   }
   
   .btn-secondary {
-    @apply bg-white hover:bg-gray-50 text-primary-600 font-semibold py-2 px-4 rounded-lg border-2 border-primary-600 transition-all duration-300 shadow-sm hover:shadow-md;
+    @apply bg-white hover:bg-neutral-100 text-primary-600 font-semibold py-2 px-4 rounded-lg border-2 border-primary-200 transition-all duration-300 shadow-sm hover:shadow-md;
   }
   
   .card {
@@ -45,11 +45,11 @@ html {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(to bottom, #dc2626, #991b1b);
+  background: linear-gradient(to bottom, #4f7cac, #2f4e70);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(to bottom, #b91c1c, #7f1d1d);
+  background: linear-gradient(to bottom, #3c638d, #243d57);
 }
 

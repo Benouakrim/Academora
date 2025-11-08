@@ -8,6 +8,7 @@ import MarkdownPreview from '@uiw/react-markdown-preview'
 import rehypeRaw from 'rehype-raw'
 import remarkGfm from 'remark-gfm'
 import SaveButton from '../components/SaveButton'
+import ArticleComments from '../components/ArticleComments'
 import SEO from '../components/SEO'
 import '../styles/editor.css'
 
@@ -163,7 +164,7 @@ export default function ArticlePage() {
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link
-                to={accessError.code === 'UPGRADE_REQUIRED' ? '/pricing' : '/signup'}
+                to={accessError.code === 'UPGRADE_REQUIRED' ? '/pricing' : '/register'}
                 className="px-6 py-3 rounded-lg font-semibold text-white bg-primary-600 hover:bg-primary-700 transition-colors w-full sm:w-auto"
               >
                 {accessError.code === 'UPGRADE_REQUIRED' ? 'Upgrade to Pro' : 'Create Free Account'}
@@ -452,6 +453,10 @@ export default function ArticlePage() {
             data-testid="ad-below-content"
           >
             Ad placeholder (300x250)
+          </div>
+
+          <div className="mt-12">
+            <ArticleComments slug={article.slug} />
           </div>
         </article>
           </div>

@@ -1,19 +1,83 @@
-import { useEffect, useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
-import { User, BookOpen, GraduationCap, LogOut, Compass, Settings, Lock, Mail, Crown, Save, X, Eye, EyeOff } from 'lucide-react'
-import { authAPI, getCurrentUser, profileAPI, savedItemsAPI, savedMatchesAPI } from '../lib/api'
-import { profileSectionsAPI } from '../lib/api'
+import { ComponentType, FormEvent, useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import {
+  Activity,
+  BarChart3,
+  BookOpen,
+  Clock,
+  Compass,
+  Crown,
+  FolderClosed,
+  GraduationCap,
+  LayoutDashboard,
+  LifeBuoy,
+  Lock,
+  LogOut,
+  Mail,
+  Save,
+  Settings,
+  SlidersHorizontal,
+  Sparkles,
+  User,
+  Users,
+  Eye,
+  EyeOff,
+  X,
+} from 'lucide-react'
+import { motion } from 'framer-motion'
+import {
+  authAPI,
+  getCurrentUser,
+  profileAPI,
+  profileSectionsAPI,
+  savedItemsAPI,
+  savedMatchesAPI,
+} from '../lib/api'
+
+const inputLightClass =
+  'w-full rounded-2xl border border-slate-200 bg-white/80 px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-100'
 
 interface UserProfile {
   id: string
   email: string
   role?: string
   full_name?: string
+  given_name?: string | null
+  family_name?: string | null
+  date_of_birth?: string | null
+  account_type?: string | null
+  persona_role?: string | null
+  focus_area?: string | null
+  primary_goal?: string | null
+  timeline?: string | null
+  organization_name?: string | null
+  organization_type?: string | null
   phone?: string
   bio?: string
   avatar_url?: string
   subscription_status?: string
   subscription_expires_at?: string
+  username?: string
+  title?: string
+  headline?: string
+  location?: string
+  website_url?: string
+  linkedin_url?: string
+  github_url?: string
+  twitter_url?: string
+  portfolio_url?: string
+  is_profile_public?: boolean
+  show_email?: boolean
+  show_saved?: boolean
+  show_reviews?: boolean
+  show_socials?: boolean
+  show_activity?: boolean
+  onboarding?: {
+    account_type: string
+    answers: Record<string, any>
+    created_at?: string
+    updated_at?: string
+  } | null
 }
 
 interface SavedItem {
@@ -24,28 +88,38 @@ interface SavedItem {
   created_at: string
 }
 
+const tabs = [
+  { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+  { id: 'insights', label: 'Insights', icon: BarChart3 },
+  { id: 'collections', label: 'Collections', icon: FolderClosed },
+  { id: 'activity', label: 'Activity', icon: Activity },
+  { id: 'settings', label: 'Settings', icon: SlidersHorizontal },
+  { id: 'support', label: 'Support', icon: LifeBuoy },
+] as const
+
+type TabId = (typeof tabs)[number]['id']
+
 export default function DashboardPage() {
+  const navigate = useNavigate()
+  const [activeTab, setActiveTab] = useState<TabId>('overview')
+
   const [user, setUser] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
-  const [savedItems, setSavedItems] = useState<SavedItem[]>([])
-  const [savedItemsCount, setSavedItemsCount] = useState(0)
-  const [savedUniversities, setSavedUniversities] = useState<{id:string, university_id:string, note?:string, created_at:string}[]>([])
-  const [experiences, setExperiences] = useState<any[]>([])
-  const [education, setEducation] = useState<any[]>([])
-  const [newExperience, setNewExperience] = useState({ title: '', company: '', location: '', start_date: '', end_date: '', current: false, description: '' })
-  const [newEducation, setNewEducation] = useState({ school: '', degree: '', field: '', start_year: '', end_year: '', description: '' })
-  const [showProfileEditor, setShowProfileEditor] = useState(false)
-  const [showPasswordEditor, setShowPasswordEditor] = useState(false)
-  const [showPassword, setShowPassword] = useState(false)
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const navigate = useNavigate()
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
-  // Profile form state
+  const [savedItems, setSavedItems] = useState<SavedItem[]>([])
+  const [savedUniversities, setSavedUniversities] = useState<{ id: string; university_id: string; note?: string; created_at: string }[]>([])
+  const [experiences, setExperiences] = useState<any[]>([])
+  const [education, setEducation] = useState<any[]>([])
+
   const [profileForm, setProfileForm] = useState({
     email: '',
     full_name: '',
+    given_name: '',
+    family_name: '',
+    date_of_birth: '',
     username: '',
     title: '',
     headline: '',
@@ -64,13 +138,40 @@ export default function DashboardPage() {
     show_socials: true,
     show_activity: true,
     subscription_status: 'free',
+    account_type: '',
+    persona_role: '',
+    focus_area: '',
+    primary_goal: '',
+    timeline: '',
+    organization_name: '',
+    organization_type: '',
   })
 
-  // Password form state
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
+  })
+  const [showPassword, setShowPassword] = useState(false)
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
+
+  const [newExperience, setNewExperience] = useState({
+    title: '',
+    company: '',
+    location: '',
+    start_date: '',
+    end_date: '',
+    current: false,
+    description: '',
+  })
+
+  const [newEducation, setNewEducation] = useState({
+    school: '',
+    degree: '',
+    field: '',
+    start_year: '',
+    end_year: '',
+    description: '',
   })
 
   useEffect(() => {
@@ -79,19 +180,31 @@ export default function DashboardPage() {
       navigate('/login')
       return
     }
-    fetchProfile()
-    fetchSavedItems()
-    fetchSavedUniversities()
-    fetchSections()
+    fetchInitialData()
   }, [navigate])
+
+  const fetchInitialData = async () => {
+    setLoading(true)
+    try {
+      await Promise.all([fetchProfile(), fetchSavedItems(), fetchSavedUniversities(), fetchSections()])
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const fetchProfile = async () => {
     try {
       const profile = await profileAPI.getProfile()
+      const onboardingAnswers = ((profile?.onboarding?.answers as Record<string, any>) || {}) ?? {}
       setUser(profile)
       setProfileForm({
         email: profile.email || '',
         full_name: profile.full_name || '',
+        given_name: profile.given_name || onboardingAnswers.givenName || '',
+        family_name: profile.family_name || onboardingAnswers.familyName || '',
+        date_of_birth: profile.date_of_birth
+          ? profile.date_of_birth.slice(0, 10)
+          : onboardingAnswers.dateOfBirth || '',
         username: profile.username || '',
         title: profile.title || '',
         headline: profile.headline || '',
@@ -110,39 +223,45 @@ export default function DashboardPage() {
         show_socials: profile.show_socials !== false,
         show_activity: profile.show_activity !== false,
         subscription_status: profile.subscription_status || 'free',
+        account_type: profile.account_type || profile.onboarding?.account_type || '',
+        persona_role:
+          profile.persona_role || onboardingAnswers.role || onboardingAnswers.organizationType || '',
+        focus_area: profile.focus_area || onboardingAnswers.focusArea || '',
+        primary_goal:
+          profile.primary_goal || onboardingAnswers.primaryGoal || onboardingAnswers.useCases || '',
+        timeline: profile.timeline || onboardingAnswers.timeline || onboardingAnswers.studentVolume || '',
+        organization_name: profile.organization_name || onboardingAnswers.organizationName || '',
+        organization_type: profile.organization_type || onboardingAnswers.organizationType || '',
       })
-    } catch (error: any) {
-      console.error('Error fetching profile:', error)
-      // Fallback to current user from token
-      const currentUser = getCurrentUser()
-      if (currentUser) {
-        setUser({
-          id: currentUser.id,
-          email: currentUser.email,
-          role: currentUser.role,
-        })
+    } catch (err) {
+      console.error('Error fetching profile', err)
+      const cached = getCurrentUser()
+      if (cached) {
+        setUser({ id: cached.id, email: cached.email, role: cached.role })
       }
-    } finally {
-      setLoading(false)
     }
   }
 
   const fetchSections = async () => {
     try {
-      const [ex, ed] = await Promise.all([
+      const [experienceList, educationList] = await Promise.all([
         profileSectionsAPI.list('experiences'),
         profileSectionsAPI.list('education'),
       ])
-      setExperiences(Array.isArray(ex) ? ex : [])
-      setEducation(Array.isArray(ed) ? ed : [])
-    } catch {}
+      setExperiences(Array.isArray(experienceList) ? experienceList : [])
+      setEducation(Array.isArray(educationList) ? educationList : [])
+    } catch (err) {
+      console.warn('Unable to fetch profile sections', err)
+      setExperiences([])
+      setEducation([])
+    }
   }
 
   const fetchSavedUniversities = async () => {
     try {
       const list = await savedMatchesAPI.list()
       setSavedUniversities(Array.isArray(list) ? list : [])
-    } catch (e) {
+    } catch {
       setSavedUniversities([])
     }
   }
@@ -150,43 +269,56 @@ export default function DashboardPage() {
   const fetchSavedItems = async () => {
     try {
       const items = await savedItemsAPI.getSavedItems()
-      setSavedItems(items)
-      
-      // Count by type
-      const articlesCount = items.filter((i: SavedItem) => i.item_type === 'article').length
-      const resourcesCount = items.filter((i: SavedItem) => i.item_type === 'resource').length
-      setSavedItemsCount(items.length)
-    } catch (error: any) {
-      console.error('Error fetching saved items:', error)
+      setSavedItems(Array.isArray(items) ? items : [])
+    } catch (err) {
+      console.error('Error loading saved items', err)
+      setSavedItems([])
     }
   }
 
-  const handleSignOut = () => {
-    authAPI.logout()
-    navigate('/')
-  }
+  const articlesCount = useMemo(() => savedItems.filter((i) => i.item_type === 'article').length, [savedItems])
+  const resourcesCount = useMemo(() => savedItems.filter((i) => i.item_type === 'resource').length, [savedItems])
+  const savedItemsCount = savedItems.length
+  const displayName =
+    user?.full_name ||
+    [user?.given_name, user?.family_name].filter(Boolean).join(' ') ||
+    user?.email
+  const accountTypeLabel = user?.account_type || user?.onboarding?.account_type || ''
+  const formattedAccountType =
+    accountTypeLabel.length > 0
+      ? accountTypeLabel.charAt(0).toUpperCase() + accountTypeLabel.slice(1)
+      : ''
 
-  const handleProfileUpdate = async (e: React.FormEvent) => {
+  const handleProfileUpdate = async (e: FormEvent) => {
     e.preventDefault()
     setSaving(true)
     setError(null)
-
+    setSuccessMessage(null)
     try {
-      const updated = await profileAPI.updateProfile(profileForm)
-      setUser(updated)
-      setShowProfileEditor(false)
-      alert('Profile updated successfully!')
-    } catch (error: any) {
-      setError(error.message || 'Failed to update profile')
+      const payload = {
+        ...profileForm,
+        date_of_birth: profileForm.date_of_birth || null,
+      }
+      const updated = await profileAPI.updateProfile(payload)
+      setUser((prev) => (prev ? { ...prev, ...updated } : updated))
+      setProfileForm((prev) => ({
+        ...prev,
+        ...payload,
+        date_of_birth: updated.date_of_birth ? updated.date_of_birth.slice(0, 10) : '',
+      }))
+      setSuccessMessage('Profile updated successfully')
+    } catch (err: any) {
+      setError(err.message || 'Failed to update profile')
     } finally {
       setSaving(false)
     }
   }
 
-  const handlePasswordUpdate = async (e: React.FormEvent) => {
+  const handlePasswordUpdate = async (e: FormEvent) => {
     e.preventDefault()
     setSaving(true)
     setError(null)
+    setSuccessMessage(null)
 
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
       setError('New passwords do not match')
@@ -202,575 +334,1160 @@ export default function DashboardPage() {
 
     try {
       await profileAPI.updatePassword(passwordForm.currentPassword, passwordForm.newPassword)
-      setShowPasswordEditor(false)
       setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
-      alert('Password updated successfully!')
-    } catch (error: any) {
-      setError(error.message || 'Failed to update password')
+      setSuccessMessage('Password updated successfully')
+    } catch (err: any) {
+      setError(err.message || 'Failed to update password')
     } finally {
       setSaving(false)
     }
+  }
+
+  const handleSignOut = () => {
+    authAPI.logout()
+    navigate('/')
   }
 
   const handleUnsaveItem = async (type: string, id: string) => {
     try {
       await savedItemsAPI.unsaveItem(type, id)
       fetchSavedItems()
-    } catch (error: any) {
-      alert('Failed to unsave item: ' + error.message)
+    } catch (err: any) {
+      setError(err.message || 'Failed to unsave item')
     }
+  }
+
+  const handleAddExperience = async () => {
+    if (!newExperience.title) return
+    await profileSectionsAPI.create('experiences', newExperience)
+    setNewExperience({ title: '', company: '', location: '', start_date: '', end_date: '', current: false, description: '' })
+    fetchSections()
+  }
+
+  const handleRemoveExperience = async (id: string) => {
+    await profileSectionsAPI.remove('experiences', id)
+    fetchSections()
+  }
+
+  const handleAddEducation = async () => {
+    if (!newEducation.school) return
+    await profileSectionsAPI.create('education', {
+      ...newEducation,
+      start_year: newEducation.start_year ? Number(newEducation.start_year) : null,
+      end_year: newEducation.end_year ? Number(newEducation.end_year) : null,
+    })
+    setNewEducation({ school: '', degree: '', field: '', start_year: '', end_year: '', description: '' })
+    fetchSections()
+  }
+
+  const handleRemoveEducation = async (id: string) => {
+    await profileSectionsAPI.remove('education', id)
+    fetchSections()
   }
 
   if (loading) {
     return (
-      <div className="bg-gray-50 min-h-screen py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center py-20">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-            <p className="mt-4 text-gray-600">Loading...</p>
-          </div>
-        </div>
+      <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-slate-50 flex items-center justify-center">
+        <motion.div
+          className="flex flex-col items-center gap-4"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.6 }}
+        >
+          <motion.div
+            className="h-14 w-14 border-4 border-primary-200 border-t-primary-600 rounded-full"
+            animate={{ rotate: 360 }}
+            transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
+          />
+          <p className="text-sm text-primary-600">Loading your dashboard…</p>
+        </motion.div>
       </div>
     )
   }
 
-  const articlesCount = savedItems.filter(i => i.item_type === 'article').length
-  const resourcesCount = savedItems.filter(i => i.item_type === 'resource').length
+  const renderOverview = () => {
+    const onboardingAnswers = ((user?.onboarding?.answers as Record<string, any>) || {}) ?? {}
+    const formatDate = (value?: string | null) => {
+      if (!value) return ''
+      const d = new Date(value)
+      if (Number.isNaN(d.getTime())) return ''
+      return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+    }
+    const detailRows = [
+      {
+        label: 'Account type',
+        value: formattedAccountType || onboardingAnswers.accountType || onboardingAnswers.account_type,
+      },
+      { label: 'First name', value: user?.given_name || onboardingAnswers.givenName },
+      { label: 'Last name', value: user?.family_name || onboardingAnswers.familyName },
+      {
+        label: 'Date of birth',
+        value: formatDate(user?.date_of_birth || onboardingAnswers.dateOfBirth),
+      },
+      { label: 'Contact email', value: onboardingAnswers.contactEmail },
+      { label: 'Phone', value: user?.phone || onboardingAnswers.contactPhone },
+      {
+        label: 'Persona role',
+        value: user?.persona_role || onboardingAnswers.role || onboardingAnswers.organizationType,
+      },
+      { label: 'Focus area', value: user?.focus_area || onboardingAnswers.focusArea },
+      {
+        label: 'Primary goal',
+        value: user?.primary_goal || onboardingAnswers.primaryGoal || onboardingAnswers.useCases,
+      },
+      { label: 'Timeline', value: user?.timeline || onboardingAnswers.timeline || onboardingAnswers.studentVolume },
+      { label: 'Organization', value: user?.organization_name || onboardingAnswers.organizationName },
+      { label: 'Organization type', value: user?.organization_type || onboardingAnswers.organizationType },
+    ]
+
+    return (
+      <div className="space-y-8">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="grid gap-6 md:grid-cols-2 xl:grid-cols-4"
+        >
+          {[
+            {
+              title: 'Profile completeness',
+              value: `${Math.min(100, Math.round((Object.values(profileForm).filter(Boolean).length / 26) * 100))}%`,
+              icon: User,
+              accent: 'from-primary-500 to-primary-700',
+            },
+            {
+              title: 'Saved items',
+              value: savedItemsCount,
+              icon: Save,
+              accent: 'from-emerald-500 to-emerald-600',
+            },
+            {
+              title: 'Experiences logged',
+              value: experiences.length,
+              icon: Users,
+              accent: 'from-blue-500 to-blue-600',
+            },
+            {
+              title: 'Universities saved',
+              value: savedUniversities.length,
+              icon: GraduationCap,
+              accent: 'from-amber-500 to-orange-500',
+            },
+          ].map((card) => (
+            <motion.div
+              key={card.title}
+              whileHover={{ y: -4 }}
+              className="relative overflow-hidden rounded-3xl bg-white p-6 shadow-lg shadow-primary-500/5"
+            >
+              <div className={`absolute inset-0 bg-gradient-to-br ${card.accent} opacity-10`} />
+              <div className="relative flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-slate-500">{card.title}</p>
+                  <p className="mt-2 text-3xl font-semibold text-slate-900">{card.value}</p>
+                </div>
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-50">
+                  <card.icon className="h-6 w-6 text-primary-600" />
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+          className="grid gap-6 lg:grid-cols-2"
+        >
+          <div className="rounded-3xl border border-primary-100 bg-white/90 p-6 shadow-md">
+            <h3 className="flex items-center gap-2 text-lg font-semibold text-slate-900">
+              <Sparkles className="h-5 w-5 text-primary-500" />
+              Personalized quick actions
+            </h3>
+            <p className="mt-2 text-sm text-slate-500">
+              Explore the areas you interact with most. We keep this section fresh as your journey evolves.
+            </p>
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              <QuickAction icon={Compass} title="University Matcher" description="Refresh your matches" to="/matching-engine" />
+              <QuickAction icon={BookOpen} title="Read Articles" description="New guidance weekly" to="/blog" />
+              <QuickAction icon={GraduationCap} title="Orientation Hub" description="Explore curated tracks" to="/orientation" />
+              <QuickAction icon={Mail} title="Stay in touch" description="Update your notifications" to="/contact" />
+            </div>
+          </div>
+
+          <motion.div
+            className="rounded-3xl border border-primary-100 bg-white/90 p-6 shadow-md"
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.4, delay: 0.15 }}
+          >
+            <h3 className="flex items-center gap-2 text-lg font-semibold text-slate-900">
+              <BarChart3 className="h-5 w-5 text-primary-500" />
+              Recent highlights
+            </h3>
+            <ul className="mt-4 space-y-3 text-sm text-slate-600">
+              <DashboardHighlight
+                label="Saved items"
+                value={`${savedItemsCount} total`}
+                accent="bg-primary-100 text-primary-700"
+              />
+              <DashboardHighlight
+                label="Articles read"
+                value={`${articlesCount} this month`}
+                accent="bg-emerald-100 text-emerald-700"
+              />
+              <DashboardHighlight
+                label="Resources saved"
+                value={`${resourcesCount} total`}
+                accent="bg-blue-100 text-blue-700"
+              />
+              <DashboardHighlight
+                label="Subscription"
+                value={user?.subscription_status === 'premium' ? 'Premium access' : 'Free tier'}
+                accent="bg-amber-100 text-amber-700"
+              />
+            </ul>
+          </motion.div>
+        </motion.div>
+
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.2 }}
+          className="rounded-3xl border border-slate-100 bg-white p-6 shadow-md"
+        >
+          <h3 className="flex items-center gap-2 text-lg font-semibold text-slate-900">
+            <User className="h-5 w-5 text-primary-500" />
+            Profile snapshot
+          </h3>
+          <p className="mt-2 text-sm text-slate-500">
+            Key details from your onboarding and profile settings. Update anything from the settings tab.
+          </p>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            {detailRows.map((row) => (
+              <DetailField key={row.label} label={row.label} value={row.value} />
+            ))}
+          </div>
+        </motion.section>
+      </div>
+    )
+  }
+
+  const renderInsights = () => (
+    <div className="space-y-8">
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        className="rounded-3xl border border-slate-100 bg-white p-6 shadow-md"
+      >
+        <h3 className="flex items-center gap-2 text-lg font-semibold text-slate-900">
+          <BarChart3 className="h-5 w-5 text-primary-500" />
+          Engagement overview
+        </h3>
+        <p className="mt-2 text-sm text-slate-500">
+          Track how you use AcademOra. These metrics update as you explore more tools and save additional resources.
+        </p>
+        <div className="mt-6 space-y-5">
+          <InsightMetric label="Resources saved" value={savedItemsCount} target={12} />
+          <InsightMetric label="Articles read" value={articlesCount} target={8} accent="emerald" />
+          <InsightMetric
+            label="Mentorship readiness"
+            value={Math.min(100, experiences.length * 20 + education.length * 15)}
+            target={100}
+            accent="purple"
+          />
+          <InsightMetric
+            label="Profile completeness"
+            value={Math.min(100, Math.round((Object.values(profileForm).filter(Boolean).length / 20) * 100))}
+            target={100}
+            accent="amber"
+          />
+        </div>
+      </motion.section>
+
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.1 }}
+        className="rounded-3xl border border-slate-100 bg-white p-6 shadow-md"
+      >
+        <h3 className="flex items-center gap-2 text-lg font-semibold text-slate-900">
+          <Clock className="h-5 w-5 text-primary-500" />
+          Activity timeline
+        </h3>
+        <div className="mt-6 space-y-4">
+          {[...experiences, ...education]
+            .slice(0, 6)
+            .sort((a, b) => (b.updated_at || b.created_at || '').localeCompare(a.updated_at || a.created_at || ''))
+            .map((item) => (
+              <motion.div
+                key={item.id}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="rounded-2xl border border-slate-100 bg-slate-50/60 p-4"
+              >
+                <p className="text-sm font-semibold text-slate-900">{item.title || item.school}</p>
+                <p className="text-sm text-slate-500">
+                  {item.company || item.degree || 'Added to your journey'}
+                </p>
+              </motion.div>
+            ))}
+          {experiences.length === 0 && education.length === 0 && (
+            <p className="text-sm text-slate-500">Add your experiences and education to unlock richer insights.</p>
+          )}
+        </div>
+      </motion.section>
+    </div>
+  )
+
+  const renderCollections = () => (
+    <div className="space-y-8">
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        className="rounded-3xl border border-slate-100 bg-white p-6 shadow-md"
+      >
+        <h3 className="flex items-center gap-2 text-lg font-semibold text-slate-900">
+          <FolderClosed className="h-5 w-5 text-primary-500" />
+          Saved items
+        </h3>
+        <p className="mt-2 text-sm text-slate-500">
+          Everything you bookmark across AcademOra appears here. Organize your favorites and return whenever you need.
+        </p>
+        <div className="mt-6 space-y-3">
+          {savedItems.length === 0 && <p className="text-sm text-slate-500">No saved items yet. Start exploring!</p>}
+          {savedItems.map((item) => (
+            <motion.div
+              key={item.id}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex items-start justify-between rounded-2xl border border-slate-200 bg-slate-50/60 p-4"
+            >
+              <div className="flex-1 pr-4">
+                <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-primary-600">
+                  <span className="rounded-full bg-primary-100 px-2 py-0.5">
+                    {item.item_type}
+                  </span>
+                  <span className="text-slate-400 font-mono">{item.item_id.slice(0, 10)}</span>
+                </div>
+                {item.item_data?.title && (
+                  <p className="mt-2 text-sm font-medium text-slate-900">{item.item_data.title}</p>
+                )}
+                {item.item_data?.excerpt && (
+                  <p className="mt-1 text-sm text-slate-500 line-clamp-2">{item.item_data.excerpt}</p>
+                )}
+              </div>
+              <button
+                onClick={() => handleUnsaveItem(item.item_type, item.item_id)}
+                className="rounded-full p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-500"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </motion.div>
+          ))}
+        </div>
+      </motion.section>
+
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.05 }}
+        className="rounded-3xl border border-slate-100 bg-white p-6 shadow-md"
+      >
+        <h3 className="flex items-center gap-2 text-lg font-semibold text-slate-900">
+          <GraduationCap className="h-5 w-5 text-primary-500" />
+          Saved universities
+        </h3>
+        <div className="mt-4 space-y-3 text-sm text-slate-600">
+          {savedUniversities.length === 0 && <p>No universities saved yet.</p>}
+          {savedUniversities.map((entry) => (
+            <div key={entry.id} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/60 p-3">
+              <span className="truncate font-medium text-slate-800">{entry.university_id}</span>
+              <button
+                onClick={async () => {
+                  await savedMatchesAPI.unsave(entry.university_id)
+                  fetchSavedUniversities()
+                }}
+                className="text-xs text-red-500 hover:text-red-600"
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+        </div>
+      </motion.section>
+    </div>
+  )
+
+  const renderActivity = () => (
+    <div className="grid gap-8 lg:grid-cols-2">
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        className="rounded-3xl border border-slate-100 bg-white p-6 shadow-md"
+      >
+        <h3 className="flex items-center gap-2 text-lg font-semibold text-slate-900">
+          <Users className="h-5 w-5 text-primary-500" />
+          Experience
+        </h3>
+        <div className="mt-4 space-y-3">
+          {experiences.length === 0 && <p className="text-sm text-slate-500">No experiences added yet.</p>}
+          {experiences.map((exp) => (
+            <div key={exp.id} className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">
+                    {exp.title} {exp.company ? `• ${exp.company}` : ''}
+                  </p>
+                  <p className="text-xs text-slate-500">{exp.location}</p>
+                  <p className="text-xs text-slate-500">
+                    {exp.start_date} {exp.end_date ? `– ${exp.end_date}` : exp.current ? '– Present' : ''}
+                  </p>
+                  {exp.description && (
+                    <p className="mt-1 text-sm text-slate-600 whitespace-pre-line">{exp.description}</p>
+                  )}
+                </div>
+                <button
+                  onClick={() => handleRemoveExperience(exp.id)}
+                  className="text-xs text-red-500 hover:text-red-600"
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-5 space-y-3 rounded-2xl bg-slate-50/80 p-4">
+          <p className="text-sm font-semibold text-slate-900">Add experience</p>
+          <div className="grid gap-3 md:grid-cols-2">
+            <input
+              className={inputLightClass}
+              placeholder="Title"
+              value={newExperience.title}
+              onChange={(e) => setNewExperience({ ...newExperience, title: e.target.value })}
+            />
+            <input
+              className={inputLightClass}
+              placeholder="Company"
+              value={newExperience.company}
+              onChange={(e) => setNewExperience({ ...newExperience, company: e.target.value })}
+            />
+            <input
+              className={inputLightClass}
+              placeholder="Location"
+              value={newExperience.location}
+              onChange={(e) => setNewExperience({ ...newExperience, location: e.target.value })}
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                className={inputLightClass}
+                type="date"
+                value={newExperience.start_date}
+                onChange={(e) => setNewExperience({ ...newExperience, start_date: e.target.value })}
+              />
+              <input
+                className={inputLightClass}
+                type="date"
+                value={newExperience.end_date}
+                onChange={(e) => setNewExperience({ ...newExperience, end_date: e.target.value })}
+              />
+            </div>
+            <label className="flex items-center gap-2 text-xs text-slate-600">
+              <input
+                type="checkbox"
+                checked={newExperience.current}
+                onChange={(e) => setNewExperience({ ...newExperience, current: e.target.checked })}
+              />
+              Current role
+            </label>
+            <textarea
+              className={`${inputLightClass} md:col-span-2`}
+              placeholder="Description"
+              value={newExperience.description}
+              onChange={(e) => setNewExperience({ ...newExperience, description: e.target.value })}
+              rows={3}
+            />
+          </div>
+          <button onClick={handleAddExperience} className="btn-primary text-sm">
+            Add experience
+          </button>
+        </div>
+      </motion.section>
+
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.05 }}
+        className="rounded-3xl border border-slate-100 bg-white p-6 shadow-md"
+      >
+        <h3 className="flex items-center gap-2 text-lg font-semibold text-slate-900">
+          <GraduationCap className="h-5 w-5 text-primary-500" />
+          Education
+        </h3>
+        <div className="mt-4 space-y-3">
+          {education.length === 0 && <p className="text-sm text-slate-500">No education added yet.</p>}
+          {education.map((ed) => (
+            <div key={ed.id} className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">{ed.school}</p>
+                  <p className="text-xs text-slate-500">
+                    {ed.degree} {ed.field ? `— ${ed.field}` : ''}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {ed.start_year} {ed.end_year ? `– ${ed.end_year}` : ''}
+                  </p>
+                  {ed.description && (
+                    <p className="mt-1 text-sm text-slate-600 whitespace-pre-line">{ed.description}</p>
+                  )}
+                </div>
+                <button
+                  onClick={() => handleRemoveEducation(ed.id)}
+                  className="text-xs text-red-500 hover:text-red-600"
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-5 space-y-3 rounded-2xl bg-slate-50/80 p-4">
+          <p className="text-sm font-semibold text-slate-900">Add education</p>
+          <div className="grid gap-3 md:grid-cols-2">
+            <input
+              className={inputLightClass}
+              placeholder="School"
+              value={newEducation.school}
+              onChange={(e) => setNewEducation({ ...newEducation, school: e.target.value })}
+            />
+            <input
+              className={inputLightClass}
+              placeholder="Degree"
+              value={newEducation.degree}
+              onChange={(e) => setNewEducation({ ...newEducation, degree: e.target.value })}
+            />
+            <input
+              className={inputLightClass}
+              placeholder="Field"
+              value={newEducation.field}
+              onChange={(e) => setNewEducation({ ...newEducation, field: e.target.value })}
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                className={inputLightClass}
+                placeholder="Start year"
+                value={newEducation.start_year}
+                onChange={(e) => setNewEducation({ ...newEducation, start_year: e.target.value })}
+              />
+              <input
+                className={inputLightClass}
+                placeholder="End year"
+                value={newEducation.end_year}
+                onChange={(e) => setNewEducation({ ...newEducation, end_year: e.target.value })}
+              />
+            </div>
+            <textarea
+              className={`${inputLightClass} md:col-span-2`}
+              placeholder="Description"
+              value={newEducation.description}
+              onChange={(e) => setNewEducation({ ...newEducation, description: e.target.value })}
+              rows={3}
+            />
+          </div>
+          <button onClick={handleAddEducation} className="btn-primary text-sm">
+            Add education
+          </button>
+        </div>
+      </motion.section>
+    </div>
+  )
+
+  const renderSettings = () => (
+    <div className="grid gap-8 lg:grid-cols-2">
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        className="rounded-3xl border border-slate-100 bg-white p-6 shadow-md"
+      >
+        <h3 className="flex items-center gap-2 text-lg font-semibold text-slate-900">
+          <Settings className="h-5 w-5 text-primary-500" />
+          Profile settings
+        </h3>
+        <p className="mt-2 text-sm text-slate-500">Control how your profile appears across the platform.</p>
+        <form onSubmit={handleProfileUpdate} className="mt-6 space-y-4">
+          {error && (
+            <div className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-600">{error}</div>
+          )}
+          {successMessage && (
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-600">
+              {successMessage}
+            </div>
+          )}
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <InputField
+              label="First name"
+              value={profileForm.given_name}
+              onChange={(value) => setProfileForm((prev) => ({ ...prev, given_name: value }))}
+            />
+            <InputField
+              label="Last name"
+              value={profileForm.family_name}
+              onChange={(value) => setProfileForm((prev) => ({ ...prev, family_name: value }))}
+            />
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <InputField
+              label="Full name"
+              value={profileForm.full_name}
+              onChange={(value) => setProfileForm((prev) => ({ ...prev, full_name: value }))}
+            />
+            <InputField
+              label="Public username"
+              value={profileForm.username}
+              onChange={(value) => setProfileForm((prev) => ({ ...prev, username: value }))}
+            />
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <InputField
+              label="Title"
+              value={profileForm.title}
+              onChange={(value) => setProfileForm((prev) => ({ ...prev, title: value }))}
+            />
+            <InputField
+              label="Headline"
+              value={profileForm.headline}
+              onChange={(value) => setProfileForm((prev) => ({ ...prev, headline: value }))}
+            />
+          </div>
+
+          <InputField
+            label="Date of birth"
+            type="date"
+            value={profileForm.date_of_birth}
+            onChange={(value) => setProfileForm((prev) => ({ ...prev, date_of_birth: value }))}
+          />
+
+          <InputField
+            label="Location"
+            value={profileForm.location}
+            onChange={(value) => setProfileForm((prev) => ({ ...prev, location: value }))}
+          />
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <InputField
+              label="Email"
+              type="email"
+              required
+              value={profileForm.email}
+              onChange={(value) => setProfileForm((prev) => ({ ...prev, email: value }))}
+            />
+            <InputField
+              label="Phone"
+              value={profileForm.phone}
+              onChange={(value) => setProfileForm((prev) => ({ ...prev, phone: value }))}
+            />
+          </div>
+
+          <div className="grid gap-4">
+            <textarea
+              className={inputLightClass}
+              rows={3}
+              placeholder="Bio"
+              value={profileForm.bio}
+              onChange={(e) => setProfileForm((prev) => ({ ...prev, bio: e.target.value }))}
+            />
+            <div className="grid gap-3 md:grid-cols-2">
+              <InputField
+                label="Website"
+                value={profileForm.website_url}
+                onChange={(value) => setProfileForm((prev) => ({ ...prev, website_url: value }))}
+              />
+              <InputField
+                label="LinkedIn"
+                value={profileForm.linkedin_url}
+                onChange={(value) => setProfileForm((prev) => ({ ...prev, linkedin_url: value }))}
+              />
+              <InputField
+                label="GitHub"
+                value={profileForm.github_url}
+                onChange={(value) => setProfileForm((prev) => ({ ...prev, github_url: value }))}
+              />
+              <InputField
+                label="Twitter / X"
+                value={profileForm.twitter_url}
+                onChange={(value) => setProfileForm((prev) => ({ ...prev, twitter_url: value }))}
+              />
+              <InputField
+                label="Portfolio"
+                value={profileForm.portfolio_url}
+                onChange={(value) => setProfileForm((prev) => ({ ...prev, portfolio_url: value }))}
+              />
+            </div>
+          </div>
+
+          <div className="rounded-2xl bg-slate-50/80 p-4">
+            <p className="text-sm font-semibold text-slate-900">Onboarding preferences</p>
+            <div className="mt-3 grid gap-3 md:grid-cols-2">
+              <InputField
+                label="Persona / role"
+                value={profileForm.persona_role}
+                onChange={(value) => setProfileForm((prev) => ({ ...prev, persona_role: value }))}
+              />
+              <InputField
+                label="Focus area"
+                value={profileForm.focus_area}
+                onChange={(value) => setProfileForm((prev) => ({ ...prev, focus_area: value }))}
+              />
+              <InputField
+                label="Primary goal"
+                value={profileForm.primary_goal}
+                onChange={(value) => setProfileForm((prev) => ({ ...prev, primary_goal: value }))}
+              />
+              <InputField
+                label="Timeline"
+                value={profileForm.timeline}
+                onChange={(value) => setProfileForm((prev) => ({ ...prev, timeline: value }))}
+              />
+              {(profileForm.account_type === 'institution' || profileForm.organization_name) && (
+                <InputField
+                  label="Organization name"
+                  value={profileForm.organization_name}
+                  onChange={(value) => setProfileForm((prev) => ({ ...prev, organization_name: value }))}
+                />
+              )}
+              {(profileForm.account_type === 'institution' || profileForm.organization_type) && (
+                <InputField
+                  label="Organization type"
+                  value={profileForm.organization_type}
+                  onChange={(value) => setProfileForm((prev) => ({ ...prev, organization_type: value }))}
+                />
+              )}
+            </div>
+            {formattedAccountType && (
+              <p className="mt-3 text-xs text-slate-500">
+                Account type: <span className="font-semibold text-slate-700">{formattedAccountType}</span>
+              </p>
+            )}
+          </div>
+
+          <div className="rounded-2xl bg-slate-50/80 p-4">
+            <p className="text-sm font-semibold text-slate-900">Privacy controls</p>
+            <div className="mt-3 grid gap-3 md:grid-cols-2">
+              <ToggleField
+                label="Public profile"
+                checked={profileForm.is_profile_public}
+                onChange={(value) => setProfileForm((prev) => ({ ...prev, is_profile_public: value }))}
+              />
+              <ToggleField
+                label="Show email"
+                checked={profileForm.show_email}
+                onChange={(value) => setProfileForm((prev) => ({ ...prev, show_email: value }))}
+              />
+              <ToggleField
+                label="Show saved items"
+                checked={profileForm.show_saved}
+                onChange={(value) => setProfileForm((prev) => ({ ...prev, show_saved: value }))}
+              />
+              <ToggleField
+                label="Show reviews"
+                checked={profileForm.show_reviews}
+                onChange={(value) => setProfileForm((prev) => ({ ...prev, show_reviews: value }))}
+              />
+              <ToggleField
+                label="Show socials"
+                checked={profileForm.show_socials}
+                onChange={(value) => setProfileForm((prev) => ({ ...prev, show_socials: value }))}
+              />
+              <ToggleField
+                label="Show activity"
+                checked={profileForm.show_activity}
+                onChange={(value) => setProfileForm((prev) => ({ ...prev, show_activity: value }))}
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <div>
+              <label className="block text-sm font-medium text-slate-700">Subscription status</label>
+              <select
+                className={inputLightClass}
+                value={profileForm.subscription_status}
+                onChange={(e) => setProfileForm((prev) => ({ ...prev, subscription_status: e.target.value }))}
+              >
+                <option value="free">Free</option>
+                <option value="premium">Premium</option>
+                <option value="enterprise">Enterprise</option>
+              </select>
+            </div>
+          </div>
+
+          <button type="submit" disabled={saving} className="btn-primary w-fit">
+            {saving ? 'Saving…' : 'Save changes'}
+          </button>
+        </form>
+      </motion.section>
+
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.05 }}
+        className="rounded-3xl border border-slate-100 bg-white p-6 shadow-md"
+      >
+        <h3 className="flex items-center gap-2 text-lg font-semibold text-slate-900">
+          <Lock className="h-5 w-5 text-primary-500" />
+          Password & security
+        </h3>
+        <form onSubmit={handlePasswordUpdate} className="mt-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700">Current password</label>
+            <div className="relative">
+              <input
+                type={showCurrentPassword ? 'text' : 'password'}
+                className={`${inputLightClass} pr-10`}
+                value={passwordForm.currentPassword}
+                onChange={(e) => setPasswordForm((prev) => ({ ...prev, currentPassword: e.target.value }))}
+                required
+              />
+              <button
+                type="button"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+                onClick={() => setShowCurrentPassword((prev) => !prev)}
+              >
+                {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700">New password</label>
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                className={`${inputLightClass} pr-10`}
+                minLength={6}
+                value={passwordForm.newPassword}
+                onChange={(e) => setPasswordForm((prev) => ({ ...prev, newPassword: e.target.value }))}
+                required
+              />
+              <button
+                type="button"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+                onClick={() => setShowPassword((prev) => !prev)}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+            <p className="mt-1 text-xs text-slate-500">Must be at least 6 characters.</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700">Confirm new password</label>
+            <input
+              type={showPassword ? 'text' : 'password'}
+              className={inputLightClass}
+              minLength={6}
+              value={passwordForm.confirmPassword}
+              onChange={(e) => setPasswordForm((prev) => ({ ...prev, confirmPassword: e.target.value }))}
+              required
+            />
+          </div>
+
+          <button type="submit" disabled={saving} className="btn-primary w-fit">
+            {saving ? 'Updating…' : 'Update password'}
+          </button>
+        </form>
+      </motion.section>
+    </div>
+  )
+
+  const renderSupport = () => (
+    <motion.section
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+      className="rounded-3xl border border-slate-100 bg-white p-8 shadow-md"
+    >
+      <h3 className="flex items-center gap-2 text-lg font-semibold text-slate-900">
+        <LifeBuoy className="h-5 w-5 text-primary-500" />
+        Need a hand?
+      </h3>
+      <p className="mt-2 text-sm text-slate-500">
+        Reach out anytime. We’re here to help make your academic journey easier.
+      </p>
+      <div className="mt-6 grid gap-4 md:grid-cols-2">
+        <SupportCard
+          icon={Mail}
+          title="Message us"
+          description="Send a message and we’ll reply within 24 hours."
+          action={{ label: 'Contact support', href: '/contact' }}
+        />
+        <SupportCard
+          icon={BookOpen}
+          title="Docs & guides"
+          description="Learn how to use AcademOra with step-by-step tutorials."
+          action={{ label: 'View guides', href: '/docs' }}
+        />
+        <SupportCard
+          icon={Compass}
+          title="Upgrade options"
+          description="Unlock premium mentoring, analytics, and concierge onboarding."
+          action={{ label: 'Explore plans', href: '/pricing' }}
+        />
+        <SupportCard
+          icon={Crown}
+          title="Feature roadmap"
+          description="See what’s coming next and vote on new features."
+          action={{ label: 'Roadmap', href: '/blog?view=docs' }}
+        />
+      </div>
+      <button
+        onClick={handleSignOut}
+        className="mt-8 inline-flex items-center gap-2 rounded-full border border-red-200 bg-red-50 px-5 py-2 text-sm font-semibold text-red-500 transition hover:bg-red-100"
+      >
+        <LogOut className="h-4 w-4" />
+        Sign out
+      </button>
+    </motion.section>
+  )
+
+  const renderActiveTab = () => {
+    switch (activeTab) {
+      case 'overview':
+        return renderOverview()
+      case 'insights':
+        return renderInsights()
+      case 'collections':
+        return renderCollections()
+      case 'activity':
+        return renderActivity()
+      case 'settings':
+        return renderSettings()
+      case 'support':
+        return renderSupport()
+      default:
+        return null
+    }
+  }
 
   return (
-    <div className="bg-gray-50 min-h-screen py-12">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">Dashboard</h1>
-          <p className="text-gray-600">Welcome back, {user?.full_name || user?.email}</p>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Profile Card */}
-            <div className="card">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center">
-                  {user?.avatar_url ? (
-                    <img
-                      src={user.avatar_url}
-                      alt={user.full_name || user.email}
-                      className="w-16 h-16 rounded-full mr-4 object-cover"
-                    />
-                  ) : (
-                    <div className="bg-primary-100 w-16 h-16 rounded-full flex items-center justify-center mr-4">
-                      <User className="h-8 w-8 text-primary-600" />
-                    </div>
-                  )}
-                  <div>
-                    <h2 className="text-2xl font-bold text-gray-900">Profile</h2>
-                    <p className="text-gray-600">{user?.email}</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowProfileEditor(!showProfileEditor)}
-                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-primary-600 hover:text-primary-700 border border-primary-300 rounded-lg hover:bg-primary-50 transition-colors"
-                >
-                  <Settings className="h-4 w-4" />
-                  {showProfileEditor ? 'Cancel' : 'Edit Profile'}
-                </button>
-              </div>
-
-              {showProfileEditor ? (
-                <form onSubmit={handleProfileUpdate} className="space-y-4">
-                  {error && (
-                    <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-                      {error}
-                    </div>
-                  )}
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Public Username</label>
-                    <input
-                      type="text"
-                      value={profileForm.username}
-                      onChange={(e) => setProfileForm({ ...profileForm, username: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                      placeholder="e.g. ayoub"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-                    <input
-                      type="text"
-                      value={profileForm.full_name}
-                      onChange={(e) => setProfileForm({ ...profileForm, full_name: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                      placeholder="Enter your full name"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
-                      <input type="text" value={profileForm.title} onChange={(e)=> setProfileForm({ ...profileForm, title: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="e.g. Computer Science Student" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Headline</label>
-                      <input type="text" value={profileForm.headline} onChange={(e)=> setProfileForm({ ...profileForm, headline: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="e.g. Interested in AI/ML, looking for internships" />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
-                    <input type="text" value={profileForm.location} onChange={(e)=> setProfileForm({ ...profileForm, location: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="City, Country" />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
-                    <input
-                      type="email"
-                      required
-                      value={profileForm.email}
-                      onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                    <input
-                      type="tel"
-                      value={profileForm.phone}
-                      onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                      placeholder="+1 (555) 123-4567"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Bio</label>
-                    <textarea
-                      value={profileForm.bio}
-                      onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })}
-                      rows={3}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                      placeholder="Tell us about yourself..."
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Links</label>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <input type="url" placeholder="Website" value={profileForm.website_url} onChange={(e)=> setProfileForm({ ...profileForm, website_url: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
-                      <input type="url" placeholder="LinkedIn" value={profileForm.linkedin_url} onChange={(e)=> setProfileForm({ ...profileForm, linkedin_url: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
-                      <input type="url" placeholder="GitHub" value={profileForm.github_url} onChange={(e)=> setProfileForm({ ...profileForm, github_url: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
-                      <input type="url" placeholder="Twitter / X" value={profileForm.twitter_url} onChange={(e)=> setProfileForm({ ...profileForm, twitter_url: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
-                      <input type="url" placeholder="Portfolio" value={profileForm.portfolio_url} onChange={(e)=> setProfileForm({ ...profileForm, portfolio_url: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 md:col-span-2" />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Privacy</label>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-                      <label className="flex items-center gap-2"><input type="checkbox" checked={profileForm.is_profile_public} onChange={(e)=> setProfileForm({ ...profileForm, is_profile_public: e.target.checked })} /> Public Profile</label>
-                      <label className="flex items-center gap-2"><input type="checkbox" checked={profileForm.show_email} onChange={(e)=> setProfileForm({ ...profileForm, show_email: e.target.checked })} /> Show Email</label>
-                      <label className="flex items-center gap-2"><input type="checkbox" checked={profileForm.show_socials} onChange={(e)=> setProfileForm({ ...profileForm, show_socials: e.target.checked })} /> Show Socials</label>
-                      <label className="flex items-center gap-2"><input type="checkbox" checked={profileForm.show_reviews} onChange={(e)=> setProfileForm({ ...profileForm, show_reviews: e.target.checked })} /> Show Reviews</label>
-                      <label className="flex items-center gap-2"><input type="checkbox" checked={profileForm.show_saved} onChange={(e)=> setProfileForm({ ...profileForm, show_saved: e.target.checked })} /> Show Saved Items</label>
-                      <label className="flex items-center gap-2"><input type="checkbox" checked={profileForm.show_activity} onChange={(e)=> setProfileForm({ ...profileForm, show_activity: e.target.checked })} /> Show Activity</label>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Subscription Status</label>
-                    <select
-                      value={profileForm.subscription_status}
-                      onChange={(e) => setProfileForm({ ...profileForm, subscription_status: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                    >
-                      <option value="free">Free</option>
-                      <option value="premium">Premium</option>
-                      <option value="enterprise">Enterprise</option>
-                    </select>
-                  </div>
-
-                  <div className="flex gap-3">
-                    <button
-                      type="submit"
-                      disabled={saving}
-                      className="btn-primary flex items-center gap-2"
-                    >
-                      <Save className="h-4 w-4" />
-                      {saving ? 'Saving...' : 'Save Changes'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowProfileEditor(false)}
-                      className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </form>
-              ) : (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-                    <p className="text-gray-900">{user?.full_name || 'Not set'}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                    <p className="text-gray-900">{user?.email}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                    <p className="text-gray-900">{user?.phone || 'Not set'}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Bio</label>
-                    <p className="text-gray-900">{user?.bio || 'Not set'}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Subscription</label>
-                    <div className="flex items-center gap-2">
-                      <Crown className={`h-4 w-4 ${user?.subscription_status === 'premium' ? 'text-yellow-500' : 'text-gray-400'}`} />
-                      <span className="text-gray-900 capitalize">{user?.subscription_status || 'free'}</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Password Management */}
-            <div className="card">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <Lock className="h-6 w-6 text-primary-600" />
-                  <h2 className="text-xl font-bold text-gray-900">Password Management</h2>
-                </div>
-                <button
-                  onClick={() => setShowPasswordEditor(!showPasswordEditor)}
-                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-primary-600 hover:text-primary-700 border border-primary-300 rounded-lg hover:bg-primary-50 transition-colors"
-                >
-                  <Lock className="h-4 w-4" />
-                  {showPasswordEditor ? 'Cancel' : 'Change Password'}
-                </button>
-              </div>
-
-              {showPasswordEditor && (
-                <form onSubmit={handlePasswordUpdate} className="space-y-4">
-                  {error && (
-                    <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-                      {error}
-                    </div>
-                  )}
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
-                    <div className="relative">
-                      <input
-                        type={showCurrentPassword ? 'text' : 'password'}
-                        required
-                        value={passwordForm.currentPassword}
-                        onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 pr-10"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
-                    <div className="relative">
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        required
-                        value={passwordForm.newPassword}
-                        onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 pr-10"
-                        minLength={6}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </div>
-                    <p className="mt-1 text-xs text-gray-500">Must be at least 6 characters</p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Confirm New Password</label>
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      required
-                      value={passwordForm.confirmPassword}
-                      onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                      minLength={6}
-                    />
-                  </div>
-
-                  <div className="flex gap-3">
-                    <button
-                      type="submit"
-                      disabled={saving}
-                      className="btn-primary flex items-center gap-2"
-                    >
-                      <Lock className="h-4 w-4" />
-                      {saving ? 'Updating...' : 'Update Password'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowPasswordEditor(false)
-                        setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
-                        setError(null)
-                      }}
-                      className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </form>
-              )}
-            </div>
-
-            {/* Saved Items */}
-            <div className="card">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <Save className="h-6 w-6 text-primary-600" />
-                  <h2 className="text-xl font-bold text-gray-900">Saved Items</h2>
-                </div>
-                <span className="text-sm text-gray-500">{savedItemsCount} items</span>
-              </div>
-
-              {savedItems.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <Save className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                  <p>No saved items yet</p>
-                  <p className="text-sm mt-1">Save articles, resources, and universities to access them here</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {savedItems.map((item) => (
-                    <div
-                      key={item.id}
-                      className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50"
-                    >
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs px-2 py-1 bg-primary-100 text-primary-700 rounded-full capitalize">
-                            {item.item_type}
-                          </span>
-                          <span className="text-sm text-gray-600 font-mono">
-                            {item.item_id.slice(0, 8)}...
-                          </span>
-                        </div>
-                        {item.item_data?.title && (
-                          <p className="text-sm font-medium text-gray-900 mt-1">{item.item_data.title}</p>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => handleUnsaveItem(item.item_type, item.item_id)}
-                        className="p-2 text-gray-400 hover:text-red-600 transition-colors"
-                        title="Unsave"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Quick Actions */}
-            <div className="card">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Quick Actions</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Link
-                  to="/matching-engine"
-                  className="flex items-center p-4 border-2 border-gray-200 rounded-lg hover:border-primary-600 hover:bg-primary-50 transition-colors"
-                >
-                  <Compass className="h-6 w-6 text-primary-600 mr-3" />
-                  <span className="font-semibold">University Matcher</span>
-                </Link>
-                <Link
-                  to="/orientation"
-                  className="flex items-center p-4 border-2 border-gray-200 rounded-lg hover:border-primary-600 hover:bg-primary-50 transition-colors"
-                >
-                  <GraduationCap className="h-6 w-6 text-primary-600 mr-3" />
-                  <span className="font-semibold">Browse Orientation</span>
-                </Link>
-                <Link
-                  to="/blog"
-                  className="flex items-center p-4 border-2 border-gray-200 rounded-lg hover:border-primary-600 hover:bg-primary-50 transition-colors"
-                >
-                  <BookOpen className="h-6 w-6 text-primary-600 mr-3" />
-                  <span className="font-semibold">Read Articles</span>
-                </Link>
-                <Link
-                  to="/university-claims/claim"
-                  className="flex items-center p-4 border-2 border-gray-200 rounded-lg hover:border-primary-600 hover:bg-primary-50 transition-colors"
-                >
-                  <GraduationCap className="h-6 w-6 text-primary-600 mr-3" />
-                  <span className="font-semibold">Claim University</span>
-                </Link>
-                {user?.role === 'admin' && (
-                  <Link
-                    to="/admin"
-                    className="flex items-center p-4 border-2 border-gray-200 rounded-lg hover:border-primary-600 hover:bg-primary-50 transition-colors"
-                  >
-                    <Settings className="h-6 w-6 text-primary-600 mr-3" />
-                    <span className="font-semibold">Admin Dashboard</span>
-                  </Link>
+    <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-slate-100">
+      <div className="mx-auto max-w-6xl px-6 py-12">
+        <header className="mb-10">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h1 className="text-3xl font-bold text-slate-900 md:text-4xl">Welcome back, {displayName}</h1>
+                <p className="mt-2 text-sm text-slate-500">
+                  Track your journey, tune your preferences, and make the most of AcademOra.
+                </p>
+                {formattedAccountType && (
+                  <span className="mt-3 inline-flex items-center gap-2 rounded-full border border-primary-200 bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-600">
+                    {formattedAccountType}
+                  </span>
                 )}
               </div>
             </div>
-          </div>
+            <div className="mt-6 flex flex-wrap gap-2">
+              {tabs.map((tab) => {
+                const Icon = tab.icon
+                const isActive = activeTab === tab.id
+                return (
+                  <motion.button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    whileTap={{ scale: 0.97 }}
+                    className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${
+                      isActive
+                        ? 'bg-primary-600 text-white shadow-lg shadow-primary-500/30'
+                        : 'bg-white/70 text-slate-500 border border-slate-200 hover:text-slate-700'
+                    }`}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {tab.label}
+                  </motion.button>
+                )
+              })}
+            </div>
+          </motion.div>
+        </header>
 
-          {/* Experiences & Education */}
-          <div className="card">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Experience</h2>
-            <div className="space-y-3 mb-6">
-              {experiences.length === 0 && <div className="text-sm text-gray-500">No experiences yet</div>}
-              {experiences.map((e) => (
-                <div key={e.id} className="p-3 border rounded-lg flex items-start justify-between">
-                  <div>
-                    <div className="font-semibold text-sm text-gray-900">{e.title} {e.company ? `• ${e.company}` : ''}</div>
-                    <div className="text-xs text-gray-500">{e.location || ''}</div>
-                    <div className="text-xs text-gray-500">{e.start_date || ''} {e.end_date ? `- ${e.end_date}` : e.current ? '- Present' : ''}</div>
-                    {e.description && <div className="text-sm text-gray-700 mt-1 whitespace-pre-line">{e.description}</div>}
-                  </div>
-                  <button className="text-xs text-red-600" onClick={async()=>{ await profileSectionsAPI.remove('experiences', e.id); fetchSections(); }}>Remove</button>
-                </div>
-              ))}
-            </div>
-
-            <h3 className="text-sm font-semibold text-gray-700 mb-2">Add Experience</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <input className="border rounded px-2 py-1 text-sm" placeholder="Title" value={newExperience.title} onChange={(e)=> setNewExperience({ ...newExperience, title: e.target.value })} />
-              <input className="border rounded px-2 py-1 text-sm" placeholder="Company" value={newExperience.company} onChange={(e)=> setNewExperience({ ...newExperience, company: e.target.value })} />
-              <input className="border rounded px-2 py-1 text-sm" placeholder="Location" value={newExperience.location} onChange={(e)=> setNewExperience({ ...newExperience, location: e.target.value })} />
-              <div className="grid grid-cols-2 gap-2">
-                <input className="border rounded px-2 py-1 text-sm" type="date" value={newExperience.start_date} onChange={(e)=> setNewExperience({ ...newExperience, start_date: e.target.value })} />
-                <input className="border rounded px-2 py-1 text-sm" type="date" value={newExperience.end_date} onChange={(e)=> setNewExperience({ ...newExperience, end_date: e.target.value })} />
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={newExperience.current} onChange={(e)=> setNewExperience({ ...newExperience, current: e.target.checked })} /> Current
-              </div>
-              <textarea className="border rounded px-2 py-1 text-sm md:col-span-2" placeholder="Description" value={newExperience.description} onChange={(e)=> setNewExperience({ ...newExperience, description: e.target.value })} />
-            </div>
-            <div className="mt-3">
-              <button className="btn-primary text-sm" onClick={async()=>{ if(!newExperience.title) return; await profileSectionsAPI.create('experiences', newExperience); setNewExperience({ title:'', company:'', location:'', start_date:'', end_date:'', current:false, description:''}); fetchSections(); }}>Add Experience</button>
-            </div>
-          </div>
-
-          <div className="card">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Education</h2>
-            <div className="space-y-3 mb-6">
-              {education.length === 0 && <div className="text-sm text-gray-500">No education yet</div>}
-              {education.map((ed) => (
-                <div key={ed.id} className="p-3 border rounded-lg flex items-start justify-between">
-                  <div>
-                    <div className="font-semibold text-sm text-gray-900">{ed.school}</div>
-                    <div className="text-xs text-gray-700">{ed.degree} {ed.field ? `— ${ed.field}` : ''}</div>
-                    <div className="text-xs text-gray-500">{ed.start_year || ''}{ed.end_year ? ` - ${ed.end_year}` : ''}</div>
-                    {ed.description && <div className="text-sm text-gray-700 mt-1 whitespace-pre-line">{ed.description}</div>}
-                  </div>
-                  <button className="text-xs text-red-600" onClick={async()=>{ await profileSectionsAPI.remove('education', ed.id); fetchSections(); }}>Remove</button>
-                </div>
-              ))}
-            </div>
-
-            <h3 className="text-sm font-semibold text-gray-700 mb-2">Add Education</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <input className="border rounded px-2 py-1 text-sm" placeholder="School" value={newEducation.school} onChange={(e)=> setNewEducation({ ...newEducation, school: e.target.value })} />
-              <input className="border rounded px-2 py-1 text-sm" placeholder="Degree" value={newEducation.degree} onChange={(e)=> setNewEducation({ ...newEducation, degree: e.target.value })} />
-              <input className="border rounded px-2 py-1 text-sm" placeholder="Field" value={newEducation.field} onChange={(e)=> setNewEducation({ ...newEducation, field: e.target.value })} />
-              <div className="grid grid-cols-2 gap-2">
-                <input className="border rounded px-2 py-1 text-sm" placeholder="Start Year" value={newEducation.start_year} onChange={(e)=> setNewEducation({ ...newEducation, start_year: e.target.value })} />
-                <input className="border rounded px-2 py-1 text-sm" placeholder="End Year" value={newEducation.end_year} onChange={(e)=> setNewEducation({ ...newEducation, end_year: e.target.value })} />
-              </div>
-              <textarea className="border rounded px-2 py-1 text-sm md:col-span-2" placeholder="Description" value={newEducation.description} onChange={(e)=> setNewEducation({ ...newEducation, description: e.target.value })} />
-            </div>
-            <div className="mt-3">
-              <button className="btn-primary text-sm" onClick={async()=>{ if(!newEducation.school) return; await profileSectionsAPI.create('education', { ...newEducation, start_year: newEducation.start_year ? Number(newEducation.start_year) : null, end_year: newEducation.end_year ? Number(newEducation.end_year) : null }); setNewEducation({ school:'', degree:'', field:'', start_year:'', end_year:'', description:''}); fetchSections(); }}>Add Education</button>
-            </div>
-          </div>
-
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Saved Universities */}
-            <div className="card">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Saved Universities</h3>
-              {savedUniversities.length === 0 ? (
-                <p className="text-sm text-gray-600">No universities saved yet.</p>
-              ) : (
-                <ul className="space-y-2">
-                  {savedUniversities.slice(0, 6).map((s) => (
-                    <li key={s.id} className="text-sm text-gray-700 flex items-center justify-between">
-                      <span className="truncate mr-2">{s.university_id}</span>
-                      <button
-                        onClick={async ()=> { await savedMatchesAPI.unsave(s.university_id); fetchSavedUniversities(); }}
-                        className="text-xs text-red-600 hover:text-red-700"
-                      >
-                        Remove
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-            {/* Account Info */}
-            <div className="card">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Account</h3>
-              <button
-                onClick={handleSignOut}
-                className="w-full flex items-center justify-center space-x-2 text-red-600 hover:text-red-700 font-semibold py-2 px-4 rounded-lg border-2 border-red-200 hover:border-red-300 transition-colors"
-              >
-                <LogOut className="h-4 w-4" />
-                <span>Sign Out</span>
-              </button>
-            </div>
-
-            {/* Stats */}
-            <div className="card">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Your Activity</h3>
-              <div className="space-y-4">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Articles Read</span>
-                  <span className="font-semibold">{articlesCount}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Resources Saved</span>
-                  <span className="font-semibold">{resourcesCount}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Total Saved</span>
-                  <span className="font-semibold">{savedItemsCount}</span>
-                </div>
-                <div className="flex justify-between items-center pt-3 border-t border-gray-200">
-                  <span className="text-gray-600 flex items-center gap-2">
-                    <Crown className={`h-4 w-4 ${user?.subscription_status === 'premium' ? 'text-yellow-500' : 'text-gray-400'}`} />
-                    Premium Content
-                  </span>
-                  <span className={`font-semibold ${user?.subscription_status === 'premium' ? 'text-primary-600' : 'text-gray-500'}`}>
-                    {user?.subscription_status === 'premium' ? 'Accessible' : 'Upgrade'}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <main className="space-y-8 pb-16">{renderActiveTab()}</main>
       </div>
     </div>
+  )
+}
+
+function QuickAction({
+  icon: Icon,
+  title,
+  description,
+  to,
+}: {
+  icon: ComponentType<{ className?: string }>
+  title: string
+  description: string
+  to: string
+}) {
+  return (
+    <Link
+      to={to}
+      className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 transition hover:-translate-y-1 hover:border-primary-500 hover:bg-primary-50/80"
+    >
+      <div className="mt-1 flex h-9 w-9 items-center justify-center rounded-xl bg-primary-100">
+        <Icon className="h-5 w-5 text-primary-600" />
+      </div>
+      <div>
+        <p className="text-sm font-semibold text-slate-900">{title}</p>
+        <p className="text-xs text-slate-500">{description}</p>
+      </div>
+    </Link>
+  )
+}
+
+function DashboardHighlight({ label, value, accent }: { label: string; value: string | number; accent: string }) {
+  return (
+    <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
+      <span className="text-sm text-slate-500">{label}</span>
+      <span className={`rounded-full px-3 py-1 text-xs font-semibold ${accent}`}>{value}</span>
+    </div>
+  )
+}
+
+function InsightMetric({
+  label,
+  value,
+  target,
+  accent = 'primary',
+}: {
+  label: string
+  value: number
+  target: number
+  accent?: 'primary' | 'emerald' | 'purple' | 'amber'
+}) {
+  const percentage = Math.min(100, Math.round((value / target) * 100))
+  const accentClass = {
+    primary: 'from-primary-500 to-primary-600',
+    emerald: 'from-emerald-500 to-emerald-600',
+    purple: 'from-violet-500 to-violet-600',
+    amber: 'from-amber-500 to-amber-600',
+  }[accent]
+
+  return (
+    <div>
+      <div className="flex items-center justify-between text-sm text-slate-500">
+        <span>{label}</span>
+        <span className="font-semibold text-slate-900">{value}</span>
+      </div>
+      <div className="mt-2 h-2 rounded-full bg-slate-100">
+        <motion.div
+          initial={{ width: 0 }}
+          animate={{ width: `${percentage}%` }}
+          transition={{ duration: 0.6 }}
+          className={`h-full rounded-full bg-gradient-to-r ${accentClass}`}
+        />
+      </div>
+    </div>
+  )
+}
+
+function InputField({
+  label,
+  value,
+  onChange,
+  type = 'text',
+  required,
+}: {
+  label: string
+  value: string
+  onChange: (value: string) => void
+  type?: string
+  required?: boolean
+}) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-slate-700">{label}</label>
+      <input
+        type={type}
+        value={value}
+        required={required}
+        onChange={(e) => onChange(e.target.value)}
+        className={inputLightClass}
+      />
+    </div>
+  )
+}
+
+function ToggleField({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string
+  checked: boolean
+  onChange: (value: boolean) => void
+}) {
+  return (
+    <label className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/80 p-3 text-sm text-slate-600">
+      {label}
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="h-4 w-4 accent-primary-600"
+      />
+    </label>
+  )
+}
+
+function DetailField({ label, value }: { label: string; value?: string | null }) {
+  const display = typeof value === 'string' ? value.trim() : value
+  if (!display) return null
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
+      <p className="text-xs uppercase tracking-wide text-slate-400">{label}</p>
+      <p className="mt-1 text-sm font-semibold text-slate-900">{display}</p>
+    </div>
+  )
+}
+
+function SupportCard({
+  icon: Icon,
+  title,
+  description,
+  action,
+}: {
+  icon: ComponentType<{ className?: string }>
+  title: string
+  description: string
+  action: { label: string; href: string }
+}) {
+  return (
+    <motion.div
+      whileHover={{ y: -3 }}
+      className="rounded-3xl border border-slate-200 bg-slate-50/80 p-5"
+    >
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-100">
+          <Icon className="h-5 w-5 text-primary-600" />
+        </div>
+        <div>
+          <p className="text-sm font-semibold text-slate-900">{title}</p>
+          <p className="text-xs text-slate-500">{description}</p>
+        </div>
+      </div>
+      <Link
+        to={action.href}
+        className="mt-4 inline-flex items-center text-xs font-semibold text-primary-600 hover:text-primary-700"
+      >
+        {action.label} →
+      </Link>
+    </motion.div>
   )
 }

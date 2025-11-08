@@ -17,10 +17,31 @@ const resetTokens = new Map();
 // Sign up
 router.post('/signup', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { identifier, email: bodyEmail, phone: bodyPhone, password, accountType } = req.body;
+    const normalizedIdentifier = identifier ? String(identifier).trim() : '';
 
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required' });
+    if (!normalizedIdentifier && !bodyEmail) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    const emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;
+    let email = bodyEmail ? String(bodyEmail).toLowerCase() : null;
+    let phone = bodyPhone || null;
+
+    if (normalizedIdentifier) {
+      if (emailRegex.test(normalizedIdentifier)) {
+        email = normalizedIdentifier.toLowerCase();
+      } else {
+        phone = normalizedIdentifier;
+      }
+    }
+
+    if (!email) {
+      return res.status(400).json({ error: 'Please provide a valid email address' });
+    }
+
+    if (!password) {
+      return res.status(400).json({ error: 'Password is required' });
     }
 
     if (password.length < 6) {
@@ -34,7 +55,13 @@ router.post('/signup', async (req, res) => {
     }
 
     // Create user with 'user' role by default
-    const user = await createUser(email, password, 'user');
+    const user = await createUser({
+      email,
+      password,
+      role: 'user',
+      phone,
+      accountType: accountType || null,
+    });
 
     const tokenPayload = {
       id: user.id,
@@ -49,6 +76,7 @@ router.post('/signup', async (req, res) => {
         id: user.id,
         email: user.email,
         role: user.role,
+        account_type: user.account_type,
       },
       token,
     });
@@ -86,6 +114,7 @@ router.post('/login', async (req, res) => {
         id: user.id,
         email: user.email,
         role: user.role,
+        account_type: user.account_type,
       },
       token,
     });
@@ -234,7 +263,7 @@ router.get('/oauth/google/callback', async (req, res) => {
     if (!user) {
       // Create with random password
       const randomPassword = crypto.randomBytes(16).toString('hex');
-      user = await createUser(email, randomPassword, 'user');
+      user = await createUser({ email, password: randomPassword, role: 'user' });
     }
 
     const tokenPayload = { id: user.id, userId: user.id, email: user.email, role: user.role };
@@ -295,7 +324,7 @@ router.get('/oauth/linkedin/callback', async (req, res) => {
     let user = await findUserByEmail(email);
     if (!user) {
       const randomPassword = crypto.randomBytes(16).toString('hex');
-      user = await createUser(email, randomPassword, 'user');
+      user = await createUser({ email, password: randomPassword, role: 'user' });
     }
 
     const tokenPayload = { id: user.id, userId: user.id, email: user.email, role: user.role };

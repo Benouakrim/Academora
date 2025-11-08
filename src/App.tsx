@@ -11,6 +11,7 @@ import OrientationCategoryPage from './pages/OrientationCategoryPage'
 import OrientationDetailPage from './pages/OrientationDetailPage'
 import LoginPage from './pages/LoginPage'
 import SignUpPage from './pages/SignUpPage'
+import RegisterPage from './pages/RegisterPage'
 import PasswordResetRequest from './pages/PasswordResetRequest'
 import PasswordReset from './pages/PasswordReset'
 import NotFound from './pages/NotFound'
@@ -60,6 +61,7 @@ function App() {
           <Route path={track("/")} element={<HomePage />} />
           <Route path={track("/login")} element={<LoginPage />} />
           <Route path={track("/signup")} element={<SignUpPage />} />
+          <Route path={track("/register")} element={<RegisterPage />} />
           <Route path={track("/password/forgot")} element={<PasswordResetRequest />} />
           <Route path={track("/password/reset")} element={<PasswordReset />} />
           <Route path={track("/dashboard")} element={<DashboardPage />} />

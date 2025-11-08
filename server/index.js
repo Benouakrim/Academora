@@ -32,6 +32,7 @@ import financialProfileRoutes from './routes/financialProfile.js';
 import devRoutes from './routes/dev.js';
 import sitemapRoutes from './routes/sitemap.js';
 import accessStatusRoutes from './routes/accessStatus.js';
+import onboardingRoutes from './routes/onboarding.js';
 
 dotenv.config();
 
@@ -76,6 +77,7 @@ app.use('/api/admin/universities', adminUniversityRoutes);
 app.use('/api/admin/university-groups', adminUniversityGroupsRoutes);
 // User profile management
 app.use('/api/profile', profileRoutes);
+app.use('/api/onboarding', onboardingRoutes);
 // Saved items
 app.use('/api/saved-items', savedItemsRoutes);
 // University claims (public routes for users)

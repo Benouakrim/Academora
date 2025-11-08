@@ -75,10 +75,23 @@ async function fetchAPI(endpoint: string, options: RequestInit = {}) {
 
 // Auth API
 export const authAPI = {
-  async signup(email: string, password: string) {
+  async signup(identifier: string, password: string, extra?: Record<string, any>) {
+    const payload: Record<string, any> = {
+      password,
+      ...(extra || {}),
+    };
+
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (emailPattern.test(identifier)) {
+      payload.email = identifier;
+    } else {
+      payload.phone = identifier;
+    }
+    payload.identifier = identifier;
+
     const data = await fetchAPI('/auth/signup', {
       method: 'POST',
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify(payload),
     });
     if (data.token) {
       setAuthToken(data.token);
@@ -123,6 +136,20 @@ export const authAPI = {
   },
 };
 
+export const onboardingAPI = {
+  async submit(payload: { accountType: string; answers: Record<string, string>; metadata?: Record<string, any> }) {
+    try {
+      return await fetchAPI('/onboarding', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    } catch (error) {
+      console.warn('Onboarding submission failed, continuing with local fallback.', error);
+      return { ok: false, error };
+    }
+  },
+};
+
 // Blog API
 export const blogAPI = {
   async getArticles(category?: string) {
@@ -132,6 +159,23 @@ export const blogAPI = {
 
   async getArticle(slug: string) {
     return fetchAPI(`/blog/${slug}`);
+  },
+
+  async getComments(slug: string) {
+    return fetchAPI(`/blog/${slug}/comments`);
+  },
+
+  async addComment(slug: string, content: string) {
+    return fetchAPI(`/blog/${slug}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    });
+  },
+
+  async deleteComment(slug: string, commentId: string) {
+    return fetchAPI(`/blog/${slug}/comments/${commentId}`, {
+      method: 'DELETE',
+    });
   },
 };
 

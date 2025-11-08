@@ -664,7 +664,7 @@ useEffect(() => {
                   {limitNotice.code === 'LOGIN_REQUIRED' ? (
                     <>
                       <Link
-                        to="/signup"
+                        to="/register"
                         className="inline-flex items-center gap-2 rounded-lg bg-sky-600 px-3 py-2 text-sm font-semibold text-white shadow hover:bg-sky-700"
                       >
                         Create Free Account
@@ -727,7 +727,7 @@ useEffect(() => {
                     </p>
                   </div>
                   <Link
-                    to="/signup"
+                    to="/register"
                     className="inline-flex items-center justify-center px-5 py-3 rounded-lg bg-white text-slate-900 font-semibold hover:bg-slate-100 transition-colors"
                   >
                     Create Free Account

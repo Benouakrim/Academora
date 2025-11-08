@@ -522,10 +522,10 @@ export default function PricingPage() {
                 Get premium features and directly support platform development.
               </p>
               <Link
-                to="/signup"
+                to="/register"
                 className="block w-full py-2 px-4 bg-purple-500/20 border border-purple-500/30 rounded-lg text-purple-300 hover:bg-purple-500/30 transition-all duration-300 text-center"
               >
-                Upgrade Now
+                Start Guided Setup
               </Link>
             </motion.div>
           </div>
@@ -620,10 +620,10 @@ export default function PricingPage() {
               transition={{ duration: 0.3 }}
             >
               <Link
-                to="/signup"
+                to="/register"
                 className="group px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 rounded-full font-semibold text-lg hover:shadow-2xl hover:shadow-green-500/25 transition-all duration-300 flex items-center justify-center gap-2"
               >
-                Start Free Trial
+                Begin Guided Registration
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </Link>
               <a 

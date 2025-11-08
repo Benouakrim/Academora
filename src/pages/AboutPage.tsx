@@ -144,7 +144,7 @@ export default function AboutPage() {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-8 py-4 rounded-full font-semibold text-lg hover:from-blue-600 hover:to-purple-700 transition-all duration-300 shadow-lg hover:shadow-xl"
-            onClick={() => window.location.href = '/signup'}
+            onClick={() => window.location.href = '/register'}
           >
             Get Started Today
           </motion.button>
