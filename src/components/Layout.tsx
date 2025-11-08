@@ -3,7 +3,9 @@ import { useLocation } from 'react-router-dom'
 import Navbar from './Navbar'
 import Footer from './Footer'
 import AdminMenu from './AdminMenu'
+import CookieConsent from './CookieConsent'
 import { getCurrentUser } from '../lib/api'
+import { CookieManager } from '../lib/cookies'
 import DevNavigator from './dev/DevNavigator'
 import { registerVisitedPath } from '../devtools/routeRegistry'
 
@@ -17,6 +19,9 @@ export default function Layout({ children }: LayoutProps) {
   const location = useLocation();
 
   useEffect(() => {
+    // Initialize cookie management
+    CookieManager.initialize();
+    
     // Track visited paths for Dev Navigator (helps surface dynamic instances)
     if (import.meta.env.DEV) {
       registerVisitedPath(location.pathname)
@@ -70,6 +75,7 @@ export default function Layout({ children }: LayoutProps) {
           onToggle={() => setShowAdminMenu(!showAdminMenu)} 
         />
       )}
+      <CookieConsent />
       {import.meta.env.DEV && (
         <DevNavigator />
       )}

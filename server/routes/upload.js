@@ -25,8 +25,7 @@ const storage = multer.diskStorage({
   }
 });
 
-const fileFilter = (req, file, cb) => {
-  // Accept only image files
+const imageFileFilter = (req, file, cb) => {
   if (file.mimetype.startsWith('image/')) {
     cb(null, true);
   } else {
@@ -34,16 +33,32 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-const upload = multer({
+const videoFileFilter = (req, file, cb) => {
+  if (file.mimetype.startsWith('video/')) {
+    cb(null, true);
+  } else {
+    cb(new Error('Only video files are allowed'), false);
+  }
+};
+
+const imageUpload = multer({
   storage,
-  fileFilter,
+  fileFilter: imageFileFilter,
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB limit
   }
 });
 
+const videoUpload = multer({
+  storage,
+  fileFilter: videoFileFilter,
+  limits: {
+    fileSize: 200 * 1024 * 1024, // 200MB limit
+  }
+});
+
 // Upload image endpoint
-router.post('/image', parseUserToken, requireAdmin, upload.single('image'), (req, res) => {
+router.post('/image', parseUserToken, requireAdmin, imageUpload.single('image'), (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No image file provided' });
@@ -82,5 +97,26 @@ router.delete('/image/:filename', parseUserToken, requireAdmin, (req, res) => {
     res.status(500).json({ error: 'Failed to delete image' });
   }
 });
+
+router.post('/video', parseUserToken, requireAdmin, videoUpload.single('video'), (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No video file provided' });
+    }
+
+    const videoUrl = `/uploads/${req.file.filename}`;
+    res.json({
+      message: 'Video uploaded successfully',
+      videoUrl,
+      filename: req.file.filename,
+      originalName: req.file.originalname,
+      size: req.file.size,
+    });
+  } catch (error) {
+    console.error('Video upload error:', error);
+    res.status(500).json({ error: 'Failed to upload video' });
+  }
+});
+
 
 export default router;

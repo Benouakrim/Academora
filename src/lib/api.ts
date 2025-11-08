@@ -357,6 +357,82 @@ export const uploadAPI = {
       method: 'DELETE',
     });
   },
+
+  async uploadVideo(file: File) {
+    const formData = new FormData();
+    formData.append('video', file);
+
+    const token = getAuthToken();
+    const headers: Record<string, string> = {};
+
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/upload/video`, {
+        method: 'POST',
+        headers,
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({
+          error: `HTTP error! status: ${response.status}`,
+        }));
+        throw new Error(error.error || `HTTP error! status: ${response.status}`);
+      }
+
+      return response.json();
+    } catch (error: any) {
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        throw new Error(`Cannot connect to API at ${API_URL}. Make sure the backend server is running on port 3001.`);
+      }
+      throw error;
+    }
+  },
+};
+
+export const videosAPI = {
+  async listPublic() {
+    return fetchAPI('/videos');
+  },
+  async listAdmin() {
+    return fetchAPI('/admin/videos');
+  },
+  async create(video: {
+    title: string;
+    description?: string;
+    video_url?: string;
+    embed_code?: string;
+    thumbnail_url?: string;
+    position?: number;
+    is_active?: boolean;
+  }) {
+    return fetchAPI('/admin/videos', {
+      method: 'POST',
+      body: JSON.stringify(video),
+    });
+  },
+  async update(id: string, video: {
+    title?: string;
+    description?: string;
+    video_url?: string;
+    embed_code?: string;
+    thumbnail_url?: string;
+    position?: number;
+    is_active?: boolean;
+  }) {
+    return fetchAPI(`/admin/videos/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(video),
+    });
+  },
+  async remove(id: string) {
+    return fetchAPI(`/admin/videos/${id}`, {
+      method: 'DELETE',
+    });
+  },
 };
 
 // Orientation API

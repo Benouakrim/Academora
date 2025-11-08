@@ -33,6 +33,8 @@ import devRoutes from './routes/dev.js';
 import sitemapRoutes from './routes/sitemap.js';
 import accessStatusRoutes from './routes/accessStatus.js';
 import onboardingRoutes from './routes/onboarding.js';
+import videosRoutes from './routes/videos.js';
+import adminVideosRoutes from './routes/adminVideos.js';
 
 dotenv.config();
 
@@ -90,6 +92,8 @@ app.use('/api/pages', staticPagesRoutes);
 app.use('/api/admin/pages', adminStaticPagesRoutes);
 // Feature access status
 app.use('/api/access', accessStatusRoutes);
+app.use('/api/videos', videosRoutes);
+app.use('/api/admin/videos', adminVideosRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

@@ -1,13 +1,57 @@
 import { Link } from 'react-router-dom'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Brain, Sparkles, ArrowRight, Users, DollarSign, 
   Globe, Target, Heart, Star, Play, Pause,
   ChevronRight, Compass, Lightbulb, Award, X,
-  BookOpen, Scale, BarChart3, Share2
+  BookOpen, Scale, BarChart3, Share2, ChevronLeft
 } from 'lucide-react'
 import FeatureModal from '../components/FeatureModal'
+import { videosAPI } from '../lib/api'
+
+type ShowcaseVideo = {
+  id: string
+  title: string
+  description?: string | null
+  video_url?: string | null
+  embed_code?: string | null
+  thumbnail_url?: string | null
+  position?: number | null
+}
+
+const fallbackShowcaseVideos: ShowcaseVideo[] = [
+  {
+    id: 'sample-1',
+    title: 'Discover AcademOra in 90 Seconds',
+    description:
+      'See how AcademOra brings guidance, matching, and comparison into one seamless experience.',
+    video_url: 'https://www.youtube.com/watch?v=ysz5S6PUM-U',
+    embed_code: '',
+    thumbnail_url: '',
+    position: 1,
+  },
+  {
+    id: 'sample-2',
+    title: 'Match With The Right University',
+    description:
+      'Our smart matching engine analyzes your goals to recommend the programs that fit best.',
+    video_url: 'https://www.youtube.com/watch?v=jNQXAC9IVRw',
+    embed_code: '',
+    thumbnail_url: '',
+    position: 2,
+  },
+  {
+    id: 'sample-3',
+    title: 'Plan Your Academic Journey',
+    description:
+      'Financial planning, mentorship, and real insights—watch how students stay ahead with AcademOra.',
+    video_url: 'https://www.youtube.com/watch?v=aqz-KE-bpKQ',
+    embed_code: '',
+    thumbnail_url: '',
+    position: 3,
+  },
+]
 
 export default function HomePage() {
   const [currentStep, setCurrentStep] = useState(0)
@@ -17,8 +61,39 @@ export default function HomePage() {
   const [showExplorer, setShowExplorer] = useState(false)
   const [selectedFeature, setSelectedFeature] = useState<any>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [showcaseVideos, setShowcaseVideos] = useState<ShowcaseVideo[]>(fallbackShowcaseVideos)
+  const [activeVideoIndex, setActiveVideoIndex] = useState(0)
+  const [isVideoLoading, setIsVideoLoading] = useState(true)
+  const howItWorksRef = useRef<HTMLDivElement | null>(null)
 
   // Auto-advance through the journey steps
+  const apiOrigin = useMemo(() => {
+    const raw = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
+    try {
+      const url = new URL(raw)
+      if (url.pathname.endsWith('/api')) {
+        url.pathname = url.pathname.replace(/\/api$/, '')
+      }
+      return url.origin + url.pathname.replace(/\/$/, '')
+    } catch {
+      return raw.replace(/\/api$/, '')
+    }
+  }, [])
+
+  const resolveMediaUrl = (value?: string | null) => {
+    if (!value) return ''
+    const trimmed = value.trim()
+    if (!trimmed) return ''
+    if (/^https?:\/\//i.test(trimmed)) return trimmed
+    if (trimmed.startsWith('//')) {
+      return `${window.location.protocol}${trimmed}`
+    }
+    if (trimmed.startsWith('/')) {
+      return `${apiOrigin}${trimmed}`
+    }
+    return trimmed
+  }
+
   useEffect(() => {
     if (!isPlaying) return
     
@@ -28,6 +103,46 @@ export default function HomePage() {
 
     return () => clearInterval(timer)
   }, [isPlaying])
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadVideos() {
+      try {
+        setIsVideoLoading(true)
+        const data = await videosAPI.listPublic()
+        if (cancelled) return
+        if (Array.isArray(data) && data.length > 0) {
+          const sorted = [...data]
+            .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+            .map((video) => ({
+              ...video,
+              video_url: video.video_url ?? '',
+              thumbnail_url: video.thumbnail_url ?? '',
+            })) as ShowcaseVideo[]
+          setShowcaseVideos(sorted)
+          setActiveVideoIndex(0)
+        } else {
+          setShowcaseVideos(fallbackShowcaseVideos)
+        }
+      } catch (error) {
+        console.warn('Failed to load showcase videos, using fallback.', error)
+        if (!cancelled) {
+          setShowcaseVideos(fallbackShowcaseVideos)
+        }
+      } finally {
+        if (!cancelled) {
+          setIsVideoLoading(false)
+        }
+      }
+    }
+
+    loadVideos()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const journeySteps = [
     {
@@ -227,6 +342,97 @@ export default function HomePage() {
     { number: "Free", label: "Start", icon: <DollarSign className="w-5 h-5" /> }
   ]
 
+  const totalVideos = showcaseVideos.length
+
+  const currentVideo = useMemo(() => {
+    if (totalVideos === 0) return null
+    const safeIndex = Math.max(0, Math.min(activeVideoIndex, totalVideos - 1))
+    return showcaseVideos[safeIndex]
+  }, [showcaseVideos, activeVideoIndex, totalVideos])
+
+  const getVideoEmbed = (video: ShowcaseVideo | null) => {
+    if (!video) return { type: 'none' as const }
+
+    if (video.embed_code && video.embed_code.trim()) {
+      return { type: 'embed' as const, html: video.embed_code }
+    }
+
+    const rawUrl = video.video_url?.trim()
+    if (!rawUrl) {
+      return { type: 'none' as const }
+    }
+
+    const urlLower = rawUrl.toLowerCase()
+
+    const extractYoutubeId = (url: string) => {
+      try {
+        if (url.includes('youtube.com/watch')) {
+          const parsed = new URL(url)
+          return parsed.searchParams.get('v')
+        }
+        if (url.includes('youtu.be/')) {
+          const parts = url.split('/')
+          return parts[parts.length - 1]
+        }
+      } catch {
+        return null
+      }
+      return null
+    }
+
+    const extractVimeoId = (url: string) => {
+      const match = url.match(/vimeo\.com\/(\d+)/)
+      return match ? match[1] : null
+    }
+
+    const youtubeId = extractYoutubeId(rawUrl)
+    if (youtubeId) {
+      return {
+        type: 'iframe' as const,
+        src: `https://www.youtube.com/embed/${youtubeId}`,
+      }
+    }
+
+    const vimeoId = extractVimeoId(rawUrl)
+    if (vimeoId) {
+      return {
+        type: 'iframe' as const,
+        src: `https://player.vimeo.com/video/${vimeoId}`,
+      }
+    }
+
+    const isDirectVideo =
+      /\.(mp4|webm|ogg)(\?.*)?$/.test(urlLower) || urlLower.startsWith('/uploads/')
+    if (isDirectVideo) {
+      return {
+        type: 'video' as const,
+        src: resolveMediaUrl(rawUrl),
+      }
+    }
+
+    return {
+      type: 'iframe' as const,
+      src: rawUrl,
+    }
+  }
+
+  const currentEmbed = useMemo(() => getVideoEmbed(currentVideo), [currentVideo])
+
+  const handleNextVideo = () => {
+    if (totalVideos === 0) return
+    setActiveVideoIndex((prev) => (prev + 1) % totalVideos)
+  }
+
+  const handlePrevVideo = () => {
+    if (totalVideos === 0) return
+    setActiveVideoIndex((prev) => (prev - 1 + totalVideos) % totalVideos)
+  }
+
+  const handleSelectVideo = (index: number) => {
+    if (index < 0 || index >= totalVideos) return
+    setActiveVideoIndex(index)
+  }
+
   return (
     <div className="min-h-screen bg-black text-white overflow-hidden">
       {/* 5-Second Hook: Immersive Hero */}
@@ -342,7 +548,7 @@ export default function HomePage() {
               </Link>
               
               <button
-                onClick={() => document.getElementById('journey')?.scrollIntoView({ behavior: 'smooth' })}
+                onClick={() => howItWorksRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
                 className="px-8 py-4 border border-white/30 rounded-full font-semibold text-lg hover:bg-white/10 transition-all duration-300 backdrop-blur-sm"
               >
                 <Play className="w-5 h-5 inline mr-2" />
@@ -497,6 +703,186 @@ export default function HomePage() {
                 {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
                 {isPlaying ? 'Pause Journey' : 'Play Journey'}
               </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Immersive Video Walkthrough */}
+      <section
+        ref={howItWorksRef}
+        id="how-it-works"
+        className="relative overflow-hidden bg-gradient-to-br from-purple-950/60 via-black to-blue-950/40 py-20"
+      >
+        <div className="absolute inset-0">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(147,197,253,0.15),_transparent_55%)]" />
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_bottom,_rgba(192,132,252,0.12),_transparent_55%)]" />
+        </div>
+        <div className="relative mx-auto max-w-7xl px-4">
+          <div className="mb-12 flex flex-col gap-4 text-center md:text-left">
+            <span className="inline-flex items-center gap-2 self-center rounded-full border border-white/10 bg-white/10 px-4 py-1 text-xs font-semibold uppercase tracking-widest text-purple-200 md:self-start">
+              <Play className="h-3.5 w-3.5" />
+              See how it works
+            </span>
+            <div className="grid gap-6 md:grid-cols-2 md:items-end">
+              <div>
+                <h2 className="text-4xl font-bold text-white md:text-5xl">
+                  A guided journey through the AcademOra platform
+                </h2>
+              </div>
+              <p className="text-lg text-gray-300 md:text-right">
+                Watch the experience come alive. Cycle through quick demos that highlight how AcademOra
+                explores, compares, and matches you with universities made for your goals.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-10 lg:grid-cols-[3fr,2fr]">
+            <div className="relative">
+              <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-black shadow-2xl shadow-purple-900/40">
+                <div className="relative aspect-video">
+                  {isVideoLoading ? (
+                    <div className="flex h-full items-center justify-center text-gray-400">
+                      <div className="flex items-center gap-3 text-sm">
+                        <Play className="h-4 w-4 animate-pulse" />
+                        Loading showcase…
+                      </div>
+                    </div>
+                  ) : !currentVideo ? (
+                    <div className="flex h-full items-center justify-center text-gray-400">
+                      Videos unavailable right now.
+                    </div>
+                  ) : currentEmbed.type === 'embed' ? (
+                    <div
+                      key={`embed-${currentVideo.id}`}
+                      className="absolute inset-0 [&>iframe]:h-full [&>iframe]:w-full [&>iframe]:rounded-3xl [&>iframe]:border-0"
+                      dangerouslySetInnerHTML={{ __html: currentEmbed.html ?? '' }}
+                    />
+                  ) : currentEmbed.type === 'iframe' ? (
+                    <iframe
+                      key={`iframe-${currentVideo.id}`}
+                      src={currentEmbed.src}
+                      title={currentVideo.title}
+                      className="absolute inset-0 h-full w-full rounded-3xl"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  ) : currentEmbed.type === 'video' ? (
+                    <video
+                      key={`video-${currentVideo.id}`}
+                      controls
+                      playsInline
+                      poster={
+                        currentVideo.thumbnail_url
+                          ? resolveMediaUrl(currentVideo.thumbnail_url)
+                          : undefined
+                      }
+                      className="absolute inset-0 h-full w-full rounded-3xl bg-black"
+                    >
+                      <source src={currentEmbed.src} />
+                      Your browser does not support embedded videos.
+                    </video>
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-gray-500">
+                      Video unavailable.
+                    </div>
+                  )}
+                </div>
+
+                {totalVideos > 1 && (
+                  <div className="absolute inset-x-0 bottom-4 flex items-center justify-between px-6">
+                    <button
+                      onClick={handlePrevVideo}
+                      className="inline-flex items-center justify-center rounded-full bg-white/15 p-2 text-white transition hover:bg-white/25"
+                      aria-label="Previous video"
+                    >
+                      <ChevronLeft className="h-5 w-5" />
+                    </button>
+                    <button
+                      onClick={handleNextVideo}
+                      className="inline-flex items-center justify-center rounded-full bg-white/15 p-2 text-white transition hover:bg-white/25"
+                      aria-label="Next video"
+                    >
+                      <ChevronRight className="h-5 w-5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+              <div className="mt-5 flex items-center justify-center gap-2">
+                {showcaseVideos.map((video, index) => {
+                  const isActive = index === activeVideoIndex
+                  return (
+                    <button
+                      key={video.id ?? index}
+                      onClick={() => handleSelectVideo(index)}
+                      className={`h-2.5 rounded-full transition ${
+                        isActive ? 'w-10 bg-purple-400' : 'w-2.5 bg-white/20 hover:bg-white/40'
+                      }`}
+                      aria-label={`Show video ${index + 1}`}
+                    />
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className="flex flex-col justify-between rounded-3xl border border-white/10 bg-white/5 p-8 backdrop-blur-xl">
+              <div className="space-y-5">
+                <span className="inline-flex items-center gap-2 rounded-full bg-purple-500/20 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-purple-200">
+                  Step {totalVideos === 0 ? 0 : activeVideoIndex + 1} of {totalVideos}
+                </span>
+                <h3 className="text-3xl font-bold text-white">
+                  {currentVideo?.title ?? 'Experience AcademOra'}
+                </h3>
+                <p className="text-base text-gray-300 leading-relaxed">
+                  {currentVideo?.description ??
+                    'Explore how AcademOra transforms discovery, comparison, and decision-making into a guided path built for ambitious students.'}
+                </p>
+              </div>
+
+              <div className="mt-8 space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-500/30 to-pink-500/30 flex items-center justify-center border border-white/10">
+                    <Sparkles className="h-5 w-5 text-purple-200" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-white">Tips while watching</p>
+                    <p className="text-xs text-gray-400">
+                      Use the arrows or dots to switch videos instantly and dive into the flow that
+                      matters most to you.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <button
+                    onClick={handlePrevVideo}
+                    disabled={totalVideos <= 1}
+                    className="inline-flex items-center justify-center gap-2 rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Previous
+                  </button>
+                  <button
+                    onClick={handleNextVideo}
+                    disabled={totalVideos <= 1}
+                    className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-purple-500 via-pink-500 to-blue-500 px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-purple-500/30 transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    Next video
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-gray-200">
+                  Ready for a deeper dive?{' '}
+                  <Link
+                    to="/register"
+                    className="font-semibold text-purple-200 underline-offset-4 hover:underline"
+                  >
+                    Start guided registration
+                  </Link>{' '}
+                  and we’ll tailor the platform to your goals.
+                </div>
+              </div>
             </div>
           </div>
         </div>

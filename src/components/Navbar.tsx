@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { authAPI, getCurrentUser, staticPagesAPI, notificationsAPI } from '../lib/api'
 import LanguageSwitcher from './LanguageSwitcher'
 import { motion, AnimatePresence } from 'framer-motion'
+import LogoutConfirmDialog from './LogoutConfirmDialog'
 
 interface User {
   id: string
@@ -44,6 +45,7 @@ export default function Navbar({ onAdminMenuToggle, showAdminMenu }: NavbarProps
   const [unreadCount, setUnreadCount] = useState<number>(0)
   const [showNotifs, setShowNotifs] = useState(false)
   const [notifications, setNotifications] = useState<any[]>([])
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -114,12 +116,22 @@ export default function Navbar({ onAdminMenuToggle, showAdminMenu }: NavbarProps
   }, [user])
 
   const handleSignOut = () => {
+    setShowLogoutConfirm(true)
+  }
+
+  const confirmSignOut = () => {
+    setShowLogoutConfirm(false)
     authAPI.logout()
     setUser(null)
     navigate('/')
   }
 
+  const cancelSignOut = () => {
+    setShowLogoutConfirm(false)
+  }
+
   return (
+    <>
     <motion.nav
       initial={{ y: -100 }}
       animate={{ y: 0 }}
@@ -747,5 +759,11 @@ export default function Navbar({ onAdminMenuToggle, showAdminMenu }: NavbarProps
         )}
       </AnimatePresence>
     </motion.nav>
+      <LogoutConfirmDialog
+        open={showLogoutConfirm}
+        onConfirm={confirmSignOut}
+        onCancel={cancelSignOut}
+      />
+    </>
   )
 }

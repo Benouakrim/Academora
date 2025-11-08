@@ -76,10 +76,10 @@ export default function AdminMenu({ isOpen, onToggle }: AdminMenuProps) {
       description: 'Review university claims'
     },
     {
-      name: 'Media',
+      name: 'Media Library',
       icon: Image,
       path: '/admin/media',
-      description: 'Upload and manage media files'
+      description: 'Upload images and manage landing videos'
     },
     {
       name: 'Taxonomies & Categories',

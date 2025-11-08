@@ -33,6 +33,7 @@ import {
   savedItemsAPI,
   savedMatchesAPI,
 } from '../lib/api'
+import LogoutConfirmDialog from '../components/LogoutConfirmDialog'
 
 const inputLightClass =
   'w-full rounded-2xl border border-slate-200 bg-white/80 px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-100'
@@ -154,6 +155,7 @@ export default function DashboardPage() {
   })
   const [showPassword, setShowPassword] = useState(false)
   const [showCurrentPassword, setShowCurrentPassword] = useState(false)
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
 
   const [newExperience, setNewExperience] = useState({
     title: '',
@@ -344,9 +346,26 @@ export default function DashboardPage() {
   }
 
   const handleSignOut = () => {
+    setShowLogoutConfirm(true)
+  }
+
+  const confirmSignOut = () => {
+    setShowLogoutConfirm(false)
     authAPI.logout()
     navigate('/')
   }
+
+  const cancelSignOut = () => {
+    setShowLogoutConfirm(false)
+  }
+
+  const logoutDialog = (
+    <LogoutConfirmDialog
+      open={showLogoutConfirm}
+      onConfirm={confirmSignOut}
+      onCancel={cancelSignOut}
+    />
+  )
 
   const handleUnsaveItem = async (type: string, id: string) => {
     try {
@@ -387,21 +406,24 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-slate-50 flex items-center justify-center">
-        <motion.div
-          className="flex flex-col items-center gap-4"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.6 }}
-        >
+      <>
+        {logoutDialog}
+        <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-slate-50 flex items-center justify-center">
           <motion.div
-            className="h-14 w-14 border-4 border-primary-200 border-t-primary-600 rounded-full"
-            animate={{ rotate: 360 }}
-            transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
-          />
-          <p className="text-sm text-primary-600">Loading your dashboard…</p>
-        </motion.div>
-      </div>
+            className="flex flex-col items-center gap-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.6 }}
+          >
+            <motion.div
+              className="h-14 w-14 border-4 border-primary-200 border-t-primary-600 rounded-full"
+              animate={{ rotate: 360 }}
+              transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
+            />
+            <p className="text-sm text-primary-600">Loading your dashboard…</p>
+          </motion.div>
+        </div>
+      </>
     )
   }
 
@@ -1277,8 +1299,10 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-slate-100">
-      <div className="mx-auto max-w-6xl px-6 py-12">
+    <>
+      {logoutDialog}
+      <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-slate-100">
+        <div className="mx-auto max-w-6xl px-6 py-12">
         <header className="mb-10">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -1318,9 +1342,10 @@ export default function DashboardPage() {
           </motion.div>
         </header>
 
-        <main className="space-y-8 pb-16">{renderActiveTab()}</main>
+          <main className="space-y-8 pb-16">{renderActiveTab()}</main>
+        </div>
       </div>
-    </div>
+    </>
   )
 }
 

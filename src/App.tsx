@@ -50,6 +50,7 @@ import PolicyPage from './pages/PolicyPage'
 import CareersPage from './pages/CareersPage'
 import { AccessControlProvider } from './context/AccessControlContext'
 const FeatureUsagePage = lazy(() => import('./pages/admin/FeatureUsagePage'))
+const AdminMediaPage = lazy(() => import('./pages/admin/AdminMediaPage'))
 
 function App() {
   return (
@@ -91,6 +92,7 @@ function App() {
           <Route path={track("/admin/tags")} element={<TagsPage />} />
           <Route path={track("/admin/localized-content")} element={<LocalizedContentPage />} />
           <Route path={track("/admin/analytics")} element={<AdvancedAnalyticsPage />} />
+          <Route path={track("/admin/media")} element={<AdminMediaPage />} />
           <Route path={track("/about")} element={<AboutPage />} />
           <Route path={track("/contact")} element={<ContactPage />} />
           <Route path={track("/policy")} element={<PolicyPage />} />

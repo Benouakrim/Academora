@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   FileText, Users, Building2, School,
-  Plus, Eye, Edit, Shield, Settings, Mail
+  Plus, Eye, Edit, Shield, Settings, Cookie
 } from 'lucide-react';
 import { adminAPI, adminUniversityAPI, adminUniversityGroupsAPI, adminUniversityClaimsAPI, getCurrentUser, adminAnalyticsAPI } from '../../lib/api';
 
@@ -32,14 +32,6 @@ interface Stats {
     approved: number;
     rejected: number;
   };
-}
-
-interface RecentActivity {
-  type: 'article' | 'user' | 'university' | 'group' | 'claim';
-  id: string;
-  title: string;
-  status?: string;
-  date: string;
 }
 
 export default function AdminDashboard() {
@@ -322,6 +314,21 @@ export default function AdminDashboard() {
               <div>
                 <h3 className="font-semibold text-gray-900">Create Group</h3>
                 <p className="text-sm text-gray-500">Add a university group</p>
+              </div>
+            </div>
+          </Link>
+
+          <Link
+            to="/admin/cookies"
+            className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow border-2 border-dashed border-gray-300 hover:border-orange-500"
+          >
+            <div className="flex items-center gap-4">
+              <div className="bg-orange-100 p-3 rounded-lg">
+                <Cookie className="h-6 w-6 text-orange-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900">Cookie Management</h3>
+                <p className="text-sm text-gray-500">Manage user cookie preferences</p>
               </div>
             </div>
           </Link>
