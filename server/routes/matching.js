@@ -3,6 +3,8 @@ import supabase from '../database/supabase.js';
 import { getMatchingUniversities } from '../services/matchingService.js';
 import { parseUserToken } from '../middleware/auth.js';
 import { checkFeatureAccess, logUsage } from '../middleware/accessControl.js';
+import { validate } from '../middleware/validate.js';
+import { matchingCriteriaSchema } from '../validation/matchingSchemas.js';
 
 const router = Router();
 
@@ -12,9 +14,10 @@ router.post(
   parseUserToken,
   checkFeatureAccess('matching-engine'),
   logUsage('matching-engine'),
+  validate(matchingCriteriaSchema),
   async (req, res) => {
     try {
-      const criteria = req.body || {};
+      const criteria = req.validated || {};
 
       // Fetch user preference weights if available to inform scoring
       const userId = req.user?.id;

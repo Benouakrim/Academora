@@ -1,6 +1,8 @@
 import express from 'express';
 import { parseUserToken, requireUser } from '../middleware/auth.js';
 import { updateUserProfile, updatePasswordById, getUserProfile } from '../data/users.js';
+import { validate } from '../middleware/validate.js';
+import { updateProfileSchema, changePasswordSchema } from '../validation/profileSchemas.js';
 
 const router = express.Router();
 
@@ -22,7 +24,7 @@ router.get('/', async (req, res) => {
 });
 
 // PUT /api/profile - Update user profile
-router.put('/', async (req, res) => {
+router.put('/', validate(updateProfileSchema), async (req, res) => {
   try {
     const {
       email,
@@ -57,7 +59,7 @@ router.put('/', async (req, res) => {
       show_reviews,
       show_socials,
       show_activity,
-    } = req.body;
+  } = req.validated;
     
     const updates = {};
     if (email !== undefined) updates.email = email;
@@ -101,9 +103,9 @@ router.put('/', async (req, res) => {
 });
 
 // PUT /api/profile/password - Update password
-router.put('/password', async (req, res) => {
+router.put('/password', validate(changePasswordSchema), async (req, res) => {
   try {
-    const { currentPassword, newPassword } = req.body;
+    const { currentPassword, newPassword } = req.validated;
 
     if (!currentPassword || !newPassword) {
       return res.status(400).json({ error: 'Current password and new password are required' });

@@ -15,7 +15,9 @@ import {
   Mail,
   Tags,
   Settings,
-  BarChart3
+  BarChart3,
+  FileCheck,
+  Gift
 } from 'lucide-react';
 
 interface AdminMenuProps {
@@ -44,6 +46,24 @@ export default function AdminMenu({ isOpen, onToggle }: AdminMenuProps) {
       icon: FileText,
       path: '/admin/articles',
       description: 'Manage articles and blog posts'
+    },
+    {
+      name: 'Review Portal',
+      icon: FileCheck,
+      path: '/admin/review',
+      description: 'Review user-submitted articles'
+    },
+    {
+      name: 'Article Analytics',
+      icon: BarChart3,
+      path: '/admin/articles/analytics',
+      description: 'View article performance and statistics'
+    },
+    {
+      name: 'Referral System',
+      icon: Gift,
+      path: '/admin/referrals',
+      description: 'Manage referral codes and rewards'
     },
     {
       name: 'Universities',

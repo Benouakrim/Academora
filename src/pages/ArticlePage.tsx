@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { Calendar, User, ArrowLeft, Edit, Trash2, Flame, Clock, Lock } from 'lucide-react'
+import { Calendar, User, ArrowLeft, Edit, Trash2, Flame, Clock, Lock, Star, TrendingUp } from 'lucide-react'
 import { adminAPI, blogAPI } from '../lib/api'
 import { BlogService } from '../lib/services/blogService'
 import { getCurrentUser } from '../lib/api'
@@ -11,6 +11,8 @@ import SaveButton from '../components/SaveButton'
 import ArticleComments from '../components/ArticleComments'
 import SEO from '../components/SEO'
 import '../styles/editor.css'
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
 interface Article {
   id: string
@@ -32,6 +34,9 @@ export default function ArticlePage() {
   const [article, setArticle] = useState<Article | null>(null)
   const [latestArticles, setLatestArticles] = useState<Article[]>([])
   const [hotArticles, setHotArticles] = useState<Article[]>([])
+  const [similarArticles, setSimilarArticles] = useState<Article[]>([])
+  const [recommendedArticles, setRecommendedArticles] = useState<Article[]>([])
+  const [activeTab, setActiveTab] = useState<'similar' | 'recommended' | 'hot' | 'latest'>('similar')
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState(false)
   const [accessError, setAccessError] = useState<{ code: string; message: string } | null>(null)
@@ -72,34 +77,154 @@ export default function ArticlePage() {
       }
     }
 
+    fetchArticle()
+  }, [slug])
+
+  useEffect(() => {
+    let isMounted = true;
+    let cleanupFn: (() => void) | undefined;
+
     async function fetchSidebarArticles() {
       try {
-        const allArticles = await blogAPI.getArticles()
-        const articles = Array.isArray(allArticles) ? allArticles : []
+        // Use the new unified API endpoint
+        const response = await fetch(`${API_URL}/blog/sections/${slug}?limit=6`)
+        if (!response.ok) {
+          throw new Error('Failed to fetch article sections')
+        }
         
-        // Exclude current article
-        const filtered = articles.filter(a => a.slug !== slug)
+        const sections = await response.json()
         
-        // Latest articles (most recent, limit 3)
-        const latest = [...filtered]
-          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-          .slice(0, 3)
-        setLatestArticles(latest)
+        if (!isMounted) return;
         
-        // Hot articles (could be most recent or featured, limit 3)
-        // For now, using most recent as "hot" - you can customize this logic
-        const hot = [...filtered]
-          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-          .slice(0, 3)
-        setHotArticles(hot)
+        setSimilarArticles(sections.similar || [])
+        setRecommendedArticles(sections.recommended || [])
+        setHotArticles(sections.hot || [])
+        setLatestArticles(sections.latest || [])
       } catch (error) {
-        console.error('Error fetching sidebar articles:', error)
+        console.error('Error fetching article sections:', error)
+        // Fallback to empty arrays if API fails
+        if (isMounted) {
+          setSimilarArticles([])
+          setRecommendedArticles([])
+          setHotArticles([])
+          setLatestArticles([])
+        }
       }
     }
 
-    fetchArticle()
-    fetchSidebarArticles()
-  }, [slug])
+    if (article) {
+      fetchSidebarArticles()
+      // Track article view - returns cleanup function
+      cleanupFn = trackArticleView()
+    }
+
+    return () => {
+      isMounted = false;
+      if (cleanupFn) {
+        cleanupFn();
+      }
+    };
+  }, [article?.id])
+
+  const trackArticleView = () => {
+    // Generate a unique session ID per article per browser session
+    const sessionKey = `article_view_${slug}_${sessionStorage.getItem('articleSessionId')}`;
+    
+    // Check if we already tracked this view in this session
+    const alreadyTracked = sessionStorage.getItem(sessionKey);
+    if (alreadyTracked) {
+      console.log('Article view already tracked in this session');
+      return () => {}; // Return empty cleanup
+    }
+
+    let viewStartTime: number;
+    let durationInterval: NodeJS.Timeout | undefined;
+    let hasTracked = false;
+
+    const trackView = async () => {
+      try {
+        // Generate a global session ID if not exists
+        let sessionId = sessionStorage.getItem('articleSessionId')
+        if (!sessionId) {
+          sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+          sessionStorage.setItem('articleSessionId', sessionId)
+        }
+
+        viewStartTime = Date.now();
+        
+        // Get auth token if available
+        const token = localStorage.getItem('token')
+        const headers: HeadersInit = {
+          'Content-Type': 'application/json',
+        }
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`
+        }
+        
+        // Track the view immediately
+        const response = await fetch(`${API_URL}/blog/${slug}/track-view`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            sessionId,
+          }),
+        })
+
+        if (response.ok) {
+          hasTracked = true;
+          // Mark as tracked in session storage
+          sessionStorage.setItem(sessionKey, 'true');
+          console.log('Article view tracked successfully')
+        }
+
+        // Update view duration when user leaves the page
+        const updateViewDuration = async () => {
+          if (!hasTracked) return;
+          
+          const duration = Math.round((Date.now() - viewStartTime) / 1000)
+          if (duration > 5) { // Only update if stayed more than 5 seconds
+            try {
+              await fetch(`${API_URL}/blog/${slug}/track-view`, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({
+                  sessionId,
+                  duration,
+                }),
+              })
+            } catch (error) {
+              // Silent fail for duration tracking
+            }
+          }
+        }
+
+        // Track duration on page unload
+        window.addEventListener('beforeunload', updateViewDuration)
+        
+        // Also track duration every 30 seconds for more accurate data
+        durationInterval = setInterval(() => {
+          const currentDuration = Math.round((Date.now() - viewStartTime) / 1000)
+          if (currentDuration > 0 && currentDuration % 30 === 0) {
+            updateViewDuration()
+          }
+        }, 30000)
+      } catch (error) {
+        console.error('Error tracking article view:', error)
+        // Silent fail - don't break the user experience
+      }
+    };
+
+    // Call the tracking function
+    trackView();
+
+    // Return cleanup function
+    return () => {
+      if (durationInterval) {
+        clearInterval(durationInterval);
+      }
+      // Note: We don't remove beforeunload listener as it's one-time use
+    };
+  }
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -108,6 +233,106 @@ export default function ArticlePage() {
       day: 'numeric',
     })
   }
+
+  const getCurrentTabData = () => {
+    switch (activeTab) {
+      case 'similar':
+        return {
+          articles: similarArticles,
+          title: 'Similar Topics',
+          icon: TrendingUp,
+          colorClass: 'from-purple-600 to-purple-700',
+          hoverColor: 'text-purple-600'
+        }
+      case 'recommended':
+        return {
+          articles: recommendedArticles,
+          title: 'Recommended Articles',
+          icon: Star,
+          colorClass: 'from-green-600 to-green-700',
+          hoverColor: 'text-green-600'
+        }
+      case 'hot':
+        return {
+          articles: hotArticles,
+          title: 'Hot Articles',
+          icon: Flame,
+          colorClass: 'from-orange-600 to-orange-700',
+          hoverColor: 'text-orange-600'
+        }
+      case 'latest':
+        return {
+          articles: latestArticles,
+          title: 'Latest Articles',
+          icon: Clock,
+          colorClass: 'from-blue-600 to-blue-700',
+          hoverColor: 'text-blue-600'
+        }
+      default:
+        return {
+          articles: similarArticles,
+          title: 'Similar Topics',
+          icon: TrendingUp,
+          colorClass: 'from-purple-600 to-purple-700',
+          hoverColor: 'text-purple-600'
+        }
+    }
+  }
+
+  const ArticleGrid = ({ articles, title, icon: Icon, colorClass }: { 
+    articles: Article[], 
+    title: string, 
+    icon: any, 
+    colorClass: string 
+  }) => (
+    <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+      <div className={`bg-gradient-to-r ${colorClass} px-6 py-4`}>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+            <Icon className="h-5 w-5 text-white" />
+          </div>
+          <h3 className="text-lg font-bold text-white">{title}</h3>
+        </div>
+      </div>
+      <div className="p-6">
+        {articles.length === 0 ? (
+          <p className="text-sm text-gray-500 text-center py-8">No articles yet</p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {articles.map((art) => (
+              <Link
+                key={art.id}
+                to={`/blog/${art.slug}`}
+                className="group hover:scale-[1.02] transition-all duration-200"
+              >
+                <div className="bg-gray-50 rounded-xl shadow-md hover:shadow-lg overflow-hidden border border-gray-100 h-full">
+                  {art.featured_image && (
+                    <div className="w-full h-40 overflow-hidden bg-gray-200">
+                      <img
+                        src={art.featured_image}
+                        alt={art.title}
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                      />
+                    </div>
+                  )}
+                  <div className="p-4">
+                    <h4 className="text-sm font-bold text-gray-900 group-hover:text-blue-600 line-clamp-2 mb-2 transition-colors">
+                      {art.title}
+                    </h4>
+                    <p className="text-xs text-gray-600 line-clamp-2 mb-3">{art.excerpt}</p>
+                    <div className="flex items-center gap-2 text-xs text-gray-400">
+                      <Calendar className="h-3 w-3" />
+                      <span>{formatDate(art.created_at)}</span>
+                    </div>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
 
   const handleEditArticle = () => {
     if (article) {
@@ -202,132 +427,36 @@ export default function ArticlePage() {
   }
 
   return (
-    <div className="bg-gray-50 min-h-screen py-16">
+    <div className="bg-gray-50 min-h-screen">
       <SEO title={`${article.title} | AcademOra`} description={article.excerpt || article.title} />
       
-      <div className="max-w-7xl mx-auto px-0 xl:px-4">
-        <div className="xl:flex xl:gap-8">
-          {/* Left Sidebar - Latest & Hot Articles */}
-          <aside className="hidden xl:block xl:w-[320px] xl:flex-shrink-0 xl:pl-4">
-            <div className="sticky top-28 space-y-6">
-              {/* Latest Articles */}
-              <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-                <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
-                      <Clock className="h-5 w-5 text-white" />
-                    </div>
-                    <h3 className="text-lg font-bold text-white">Latest Articles</h3>
-                  </div>
-                </div>
-                <div className="p-4 space-y-4">
-                  {latestArticles.length === 0 ? (
-                    <p className="text-sm text-gray-500 text-center py-4">No articles yet</p>
-                  ) : (
-                    latestArticles.map((art) => (
-                      <Link
-                        key={art.id}
-                        to={`/blog/${art.slug}`}
-                        className="block group hover:scale-[1.02] transition-all duration-200"
-                      >
-                        <div className="bg-white rounded-xl shadow-md hover:shadow-lg overflow-hidden border border-gray-100">
-                          {art.featured_image && (
-                            <div className="w-full h-32 overflow-hidden bg-gray-200">
-                              <img
-                                src={art.featured_image}
-                                alt={art.title}
-                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                              />
-                            </div>
-                          )}
-                          <div className="p-4">
-                            <h4 className="text-sm font-bold text-gray-900 group-hover:text-blue-600 line-clamp-2 mb-2 transition-colors">
-                              {art.title}
-                            </h4>
-                            <p className="text-xs text-gray-600 line-clamp-2 mb-2">{art.excerpt}</p>
-                            <div className="flex items-center gap-2 text-xs text-gray-400">
-                              <Calendar className="h-3 w-3" />
-                              <span>{formatDate(art.created_at)}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </Link>
-                    ))
-                  )}
-                </div>
-              </div>
+      {/* Top Ad Banner */}
+      <div className="w-full bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <div
+            className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4 text-center text-gray-600"
+            aria-label="Advertisement"
+            data-testid="ad-top-banner"
+          >
+            Ad Banner (970x90)
+          </div>
+        </div>
+      </div>
 
-              {/* Hot Articles */}
-              <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-                <div className="bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
-                      <Flame className="h-5 w-5 text-white" />
-                    </div>
-                    <h3 className="text-lg font-bold text-white">Hot Articles</h3>
-                  </div>
-                </div>
-                <div className="p-4 space-y-4">
-                  {hotArticles.length === 0 ? (
-                    <p className="text-sm text-gray-500 text-center py-4">No articles yet</p>
-                  ) : (
-                    hotArticles.map((art) => (
-                      <Link
-                        key={art.id}
-                        to={`/blog/${art.slug}`}
-                        className="block group hover:scale-[1.02] transition-all duration-200"
-                      >
-                        <div className="bg-white rounded-xl shadow-md hover:shadow-lg overflow-hidden border border-gray-100">
-                          {art.featured_image && (
-                            <div className="w-full h-32 overflow-hidden bg-gray-200">
-                              <img
-                                src={art.featured_image}
-                                alt={art.title}
-                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                              />
-                            </div>
-                          )}
-                          <div className="p-4">
-                            <h4 className="text-sm font-bold text-gray-900 group-hover:text-orange-600 line-clamp-2 mb-2 transition-colors">
-                              {art.title}
-                            </h4>
-                            <p className="text-xs text-gray-600 line-clamp-2 mb-2">{art.excerpt}</p>
-                            <div className="flex items-center gap-2 text-xs text-gray-400">
-                              <Calendar className="h-3 w-3" />
-                              <span>{formatDate(art.created_at)}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </Link>
-                    ))
-                  )}
-                </div>
-              </div>
-            </div>
-          </aside>
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Breadcrumb Navigation */}
+        <div className="mb-6">
+          <Link
+            to="/blog"
+            className="inline-flex items-center text-primary-600 hover:text-primary-700"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Blog
+          </Link>
+        </div>
 
-          {/* Main Content Area */}
-          <div className="flex-1 min-w-0 px-4 sm:px-6 lg:px-8">
-            {/* Right Side Ad Placeholder */}
-            <div
-              className="hidden xl:block fixed top-28 right-4 z-10"
-              aria-label="Advertisement"
-              data-testid="ad-right"
-            >
-              <div className="w-[160px] h-[600px] rounded-lg border border-dashed border-gray-300 bg-gray-50 flex items-center justify-center text-gray-600 text-sm">
-                Ad (160x600)
-              </div>
-            </div>
-            
-        <Link
-          to="/blog"
-          className="inline-flex items-center text-primary-600 hover:text-primary-700 mb-8"
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Blog
-        </Link>
-
-        <article className="bg-white rounded-xl shadow-lg p-10 md:p-16">
+        {/* Main Article - Full Width */}
+        <article className="bg-white rounded-xl shadow-lg p-8 md:p-12 lg:p-16 mb-12">
           {/* Admin Actions Bar */}
           {isAdmin && (
             <div className="flex items-center justify-between mb-6 pb-6 border-b border-gray-200">
@@ -364,6 +493,7 @@ export default function ArticlePage() {
             </div>
           )}
 
+          {/* Article Meta */}
           <div className="mb-6 flex flex-wrap gap-2">
             {article.is_premium && (
               <span className="inline-flex items-center bg-yellow-100 text-yellow-800 text-sm font-semibold px-4 py-1 rounded-full">
@@ -378,17 +508,18 @@ export default function ArticlePage() {
                 </span>
               ))
             ) : (
-            <span className="inline-block bg-primary-100 text-primary-700 text-sm font-semibold px-4 py-1 rounded-full">
-              {article.category}
-            </span>
+              <span className="inline-block bg-primary-100 text-primary-700 text-sm font-semibold px-4 py-1 rounded-full">
+                {article.category}
+              </span>
             )}
           </div>
 
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">
+          {/* Article Title */}
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 mb-8 leading-tight">
             {article.title}
           </h1>
 
-          {/* Ad Placeholder - Below Title */}
+          {/* Ad Below Title */}
           <div
             className="mb-8 rounded-lg border border-dashed border-gray-300 bg-gray-50 p-6 text-center text-gray-600"
             aria-label="Advertisement"
@@ -397,6 +528,7 @@ export default function ArticlePage() {
             Ad placeholder (970x250)
           </div>
 
+          {/* Article Info */}
           <div className="flex items-center justify-between mb-8 pb-8 border-b border-gray-200">
             <div className="flex items-center text-gray-600">
               <div className="flex items-center mr-6">
@@ -415,6 +547,7 @@ export default function ArticlePage() {
             />
           </div>
 
+          {/* Featured Image */}
           {article.featured_image && (
             <div className="mb-8 rounded-lg overflow-hidden">
               <img
@@ -425,7 +558,7 @@ export default function ArticlePage() {
             </div>
           )}
 
-          {/* Ad Placeholder - Above Content */}
+          {/* Ad Above Content */}
           <div
             className="mb-8 rounded-lg border border-dashed border-gray-300 bg-gray-50 p-6 text-center text-gray-600"
             aria-label="Advertisement"
@@ -434,7 +567,8 @@ export default function ArticlePage() {
             Ad placeholder (728x90)
           </div>
 
-          <div className="prose prose-lg max-w-none prose-headings:mb-6 prose-p:mb-4 prose-ul:mb-4 prose-li:mb-2 prose-h2:mt-8 prose-h3:mt-6 prose-h4:mt-4 leading-relaxed markdown-preview" data-color-mode="light">
+          {/* Article Content - Full Width Reading */}
+          <div className="prose prose-lg prose-xl max-w-none prose-headings:mb-6 prose-p:mb-4 prose-ul:mb-4 prose-li:mb-2 prose-h2:mt-8 prose-h3:mt-6 prose-h4:mt-4 leading-relaxed markdown-preview" data-color-mode="light">
             <MarkdownPreview 
               source={article.content} 
               rehypePlugins={[rehypeRaw]} 
@@ -446,19 +580,150 @@ export default function ArticlePage() {
             />
           </div>
 
-          {/* Ad Placeholder - Below Content */}
+          {/* Ad Below Content */}
           <div
-            className="mt-10 rounded-lg border border-dashed border-gray-300 bg-gray-50 p-6 text-center text-gray-600"
+            className="mt-12 rounded-lg border border-dashed border-gray-300 bg-gray-50 p-6 text-center text-gray-600"
             aria-label="Advertisement"
             data-testid="ad-below-content"
           >
             Ad placeholder (300x250)
           </div>
+        </article>
 
-          <div className="mt-12">
+        {/* Article Sections - Unified Navigation */}
+        <div className="space-y-8">
+          {/* Unified Article Navigation */}
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+            {/* Tab Navigation */}
+            <div className="bg-gray-50 border-b border-gray-200 px-6 py-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex bg-white rounded-lg p-1 shadow-sm border border-gray-200">
+                  <button
+                    onClick={() => setActiveTab('similar')}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      activeTab === 'similar' 
+                        ? 'bg-purple-100 text-purple-700' 
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                    }`}
+                  >
+                    <TrendingUp className="h-4 w-4" />
+                    <span className="hidden sm:inline">Similar</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('recommended')}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      activeTab === 'recommended' 
+                        ? 'bg-green-100 text-green-700' 
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                    }`}
+                  >
+                    <Star className="h-4 w-4" />
+                    <span className="hidden sm:inline">Recommended</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('hot')}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      activeTab === 'hot' 
+                        ? 'bg-orange-100 text-orange-700' 
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                    }`}
+                  >
+                    <Flame className="h-4 w-4" />
+                    <span className="hidden sm:inline">Hot</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('latest')}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      activeTab === 'latest' 
+                        ? 'bg-blue-100 text-blue-700' 
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                    }`}
+                  >
+                    <Clock className="h-4 w-4" />
+                    <span className="hidden sm:inline">Latest</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Tab Content */}
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className={`p-2 bg-gradient-to-r ${getCurrentTabData().colorClass} rounded-lg`}>
+                  {(() => {
+                    const Icon = getCurrentTabData().icon
+                    return <Icon className="h-5 w-5 text-white" />
+                  })()}
+                </div>
+                <h3 className="text-xl font-bold text-gray-900">{getCurrentTabData().title}</h3>
+              </div>
+              
+              {getCurrentTabData().articles.length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-12">No articles yet</p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {getCurrentTabData().articles.map((art) => {
+                    const tabData = getCurrentTabData()
+                    return (
+                      <Link
+                        key={art.id}
+                        to={`/blog/${art.slug}`}
+                        className="group hover:scale-[1.02] transition-all duration-200"
+                      >
+                        <div className="bg-gray-50 rounded-xl shadow-md hover:shadow-lg overflow-hidden border border-gray-100 h-full">
+                          {art.featured_image && (
+                            <div className="w-full h-48 overflow-hidden bg-gray-200">
+                              <img
+                                src={art.featured_image}
+                                alt={art.title}
+                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                              />
+                            </div>
+                          )}
+                          <div className="p-5">
+                            <h4 className={`text-base font-bold text-gray-900 line-clamp-2 mb-3 transition-colors group-hover:${tabData.hoverColor}`}>
+                              {art.title}
+                            </h4>
+                            <p className="text-sm text-gray-600 line-clamp-3 mb-4">{art.excerpt}</p>
+                            <div className="flex items-center gap-2 text-xs text-gray-400">
+                              <Calendar className="h-3 w-3" />
+                              <span>{formatDate(art.created_at)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </Link>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Middle Ad Banner */}
+          <div
+            className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-6 text-center text-gray-600"
+            aria-label="Advertisement"
+            data-testid="ad-middle-banner"
+          >
+            Ad Banner (970x250)
+          </div>
+
+          {/* Comments Section */}
+          <div className="bg-white rounded-xl shadow-lg border border-gray-100">
             <ArticleComments slug={article.slug} />
           </div>
-        </article>
+        </div>
+      </div>
+
+      {/* Bottom Ad Banner */}
+      <div className="w-full bg-white border-t border-gray-200 mt-12">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <div
+            className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4 text-center text-gray-600"
+            aria-label="Advertisement"
+            data-testid="ad-bottom-banner"
+          >
+            Ad Banner (970x90)
           </div>
         </div>
       </div>

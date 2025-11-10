@@ -5,14 +5,15 @@ dotenv.config();
 
 // Use the provided Supabase URL, or fall back to environment variable
 const supabaseUrl = process.env.SUPABASE_URL || 'https://snflmjoiarpvtvqoawvz.supabase.co';
-// Use SUPABASE_KEY or SUPABASE_SERVICE_ROLE_KEY from environment variables
-// IMPORTANT: Use the service_role key (not anon key) for server-side operations
-const supabaseKey = process.env.SUPABASE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+// Prefer the service role key for server-side privileged operations.
+// Only fall back to SUPABASE_KEY (anon) if service role is absent.
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
 
 if (!supabaseKey) {
-  console.warn('⚠️  Warning: SUPABASE_KEY or SUPABASE_SERVICE_ROLE_KEY not found in environment variables');
-  console.warn('   Create a .env file in the root directory with your Supabase credentials.');
-  console.warn('   See server/database/README.md for setup instructions.');
+  console.warn('⚠️  Warning: No Supabase key found (SUPABASE_SERVICE_ROLE_KEY or SUPABASE_KEY).');
+  console.warn('   Add SUPABASE_SERVICE_ROLE_KEY to .env for full server capabilities.');
+} else if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  console.warn('ℹ️  Using anon SUPABASE_KEY (no service role key provided) - privileged operations may fail (RLS).');
 }
 
 // Create Supabase client with service role key for server-side operations

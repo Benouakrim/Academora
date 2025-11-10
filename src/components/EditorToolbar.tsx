@@ -22,8 +22,10 @@ import {
   Highlighter,
   Type,
   Minus,
+  Upload,
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
+import { uploadAPI } from '../lib/api';
 
 interface EditorToolbarProps {
   editor: Editor | null;
@@ -34,9 +36,11 @@ export default function EditorToolbar({ editor }: EditorToolbarProps) {
   const [linkUrl, setLinkUrl] = useState('');
   const [showImageInput, setShowImageInput] = useState(false);
   const [imageUrl, setImageUrl] = useState('');
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [showFontSize, setShowFontSize] = useState(false);
   const linkInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const imageFileInputRef = useRef<HTMLInputElement>(null);
   const fontSizeRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -93,12 +97,26 @@ export default function EditorToolbar({ editor }: EditorToolbarProps) {
 
   const handleSetLink = () => {
     if (linkUrl) {
-      editor
-        .chain()
-        .focus()
-        .extendMarkRange('link')
-        .setLink({ href: linkUrl })
-        .run();
+      // Check if text is selected
+      const { from, to } = editor.state.selection;
+      const hasSelection = from !== to;
+
+      if (hasSelection) {
+        // Apply link to selected text
+        editor
+          .chain()
+          .focus()
+          .extendMarkRange('link')
+          .setLink({ href: linkUrl })
+          .run();
+      } else {
+        // Insert link as clickable text
+        editor
+          .chain()
+          .focus()
+          .insertContent(`<a href="${linkUrl}">${linkUrl}</a>`)
+          .run();
+      }
       setLinkUrl('');
       setShowLinkInput(false);
     }
@@ -112,12 +130,46 @@ export default function EditorToolbar({ editor }: EditorToolbarProps) {
     }
   };
 
+  const handleImageFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file');
+      return;
+    }
+
+    // Validate file size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image size must be less than 5MB');
+      return;
+    }
+
+    setUploadingImage(true);
+
+    try {
+      const result = await uploadAPI.uploadImage(file);
+      const fullUrl = `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'}${result.imageUrl}`;
+      editor.chain().focus().setImage({ src: fullUrl }).run();
+      setShowImageInput(false);
+    } catch (err: any) {
+      alert(err.message || 'Failed to upload image');
+    } finally {
+      setUploadingImage(false);
+      // Clear the file input
+      if (imageFileInputRef.current) {
+        imageFileInputRef.current.value = '';
+      }
+    }
+  };
+
   const fontSizes = [
-    { label: 'Small', class: 'text-sm' },
-    { label: 'Normal', class: 'text-base' },
-    { label: 'Large', class: 'text-lg' },
-    { label: 'Extra Large', class: 'text-xl' },
-    { label: 'Huge', class: 'text-2xl' },
+    { label: 'Small', value: '14px', class: 'text-sm' },
+    { label: 'Normal', value: '16px', class: 'text-base' },
+    { label: 'Large', value: '18px', class: 'text-lg' },
+    { label: 'Extra Large', value: '24px', class: 'text-xl' },
+    { label: 'Huge', value: '32px', class: 'text-2xl' },
   ];
 
   return (
@@ -341,6 +393,34 @@ export default function EditorToolbar({ editor }: EditorToolbarProps) {
           </ToolbarButton>
           {showImageInput && (
             <div className="absolute top-full left-0 mt-2 bg-white backdrop-blur-md rounded-lg shadow-xl p-4 w-80 z-20 border border-gray-200 animate-slideDown">
+              <label className="block text-xs font-medium text-gray-700 mb-2">Upload Image</label>
+              <input
+                ref={imageFileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageFileSelect}
+                className="hidden"
+                id="toolbar-image-upload"
+              />
+              <label
+                htmlFor="toolbar-image-upload"
+                className={`flex items-center justify-center gap-2 w-full px-3 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 text-sm font-medium transition-all hover:scale-105 active:scale-95 shadow-md cursor-pointer mb-3 ${
+                  uploadingImage ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
+              >
+                {uploadingImage ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-4 w-4" />
+                    Choose File
+                  </>
+                )}
+              </label>
+              <div className="text-center text-xs text-gray-500 mb-3">or</div>
               <label className="block text-xs font-medium text-gray-700 mb-2">Enter Image URL</label>
               <input
                 ref={imageInputRef}
@@ -362,13 +442,17 @@ export default function EditorToolbar({ editor }: EditorToolbarProps) {
                 <button
                   type="button"
                   onClick={handleSetImage}
-                  className="flex-1 px-3 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 text-sm font-medium transition-all hover:scale-105 active:scale-95 shadow-md"
+                  disabled={!imageUrl}
+                  className="flex-1 px-3 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 text-sm font-medium transition-all hover:scale-105 active:scale-95 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Insert
                 </button>
                 <button
                   type="button"
-                  onClick={() => setShowImageInput(false)}
+                  onClick={() => {
+                    setShowImageInput(false);
+                    setImageUrl('');
+                  }}
                   className="flex-1 px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-medium transition-all hover:scale-105 active:scale-95"
                 >
                   Cancel
@@ -407,8 +491,8 @@ export default function EditorToolbar({ editor }: EditorToolbarProps) {
                   key={size.label}
                   type="button"
                   onClick={() => {
-                    // Apply the size class to the selected text
-                    editor.chain().focus().run();
+                    // Apply the font size to the selected text
+                    editor.chain().focus().setFontSize(size.value).run();
                     setShowFontSize(false);
                   }}
                   onMouseDown={(e) => e.preventDefault()}

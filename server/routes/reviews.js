@@ -1,6 +1,8 @@
 import express from 'express';
 import supabase from '../database/supabase.js';
 import { parseUserToken, requireUser } from '../middleware/auth.js';
+import { validate } from '../middleware/validate.js';
+import { upsertReviewSchema } from '../validation/reviewsSchemas.js';
 
 const router = express.Router();
 
@@ -24,11 +26,11 @@ router.get('/university/:id', async (req, res) => {
 });
 
 // Create or update a user's review for a university
-router.post('/university/:id', requireUser, async (req, res) => {
+router.post('/university/:id', requireUser, validate(upsertReviewSchema), async (req, res) => {
   try {
     const userId = req.user?.id;
     const universityId = req.params.id;
-    const { rating, comment } = req.body || {};
+    const { rating, comment } = req.validated;
     if (!rating || rating < 1 || rating > 5) return res.status(400).json({ error: 'rating must be 1-5' });
 
     // Upsert by (user_id, university_id)

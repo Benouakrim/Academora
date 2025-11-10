@@ -125,7 +125,12 @@ function PrivacyPolicy() {
         </section>
 
         <section>
-          <h3 className="text-xl font-semibold text-white mb-3">2. How We Use Your Information</h3>
+          <h3 className="text-xl font-semibold text-white mb-3">2. Eligibility & Age Requirement</h3>
+          <p>AcademOra is designed for users who are at least 16 years old. By accessing our services, you confirm that you meet this minimum age requirement and, where applicable, have the permission of a parent or legal guardian.</p>
+        </section>
+
+        <section>
+          <h3 className="text-xl font-semibold text-white mb-3">3. How We Use Your Information</h3>
           <p className="mb-4">We use the information we collect to provide, maintain, and improve our services:</p>
           <ul className="list-disc list-inside space-y-2 ml-4">
             <li>To create and manage your account</li>
@@ -137,7 +142,7 @@ function PrivacyPolicy() {
         </section>
 
         <section>
-          <h3 className="text-xl font-semibold text-white mb-3">3. Information Sharing</h3>
+          <h3 className="text-xl font-semibold text-white mb-3">4. Information Sharing</h3>
           <p className="mb-4">We do not sell, trade, or otherwise transfer your personal information to third parties without your consent, except as described in this policy.</p>
           <ul className="list-disc list-inside space-y-2 ml-4">
             <li>With universities you choose to connect with</li>
@@ -147,12 +152,12 @@ function PrivacyPolicy() {
         </section>
 
         <section>
-          <h3 className="text-xl font-semibold text-white mb-3">4. Data Security</h3>
+          <h3 className="text-xl font-semibold text-white mb-3">5. Data Security</h3>
           <p>We implement appropriate technical and organizational measures to protect your personal information against unauthorized access, alteration, disclosure, or destruction.</p>
         </section>
 
         <section>
-          <h3 className="text-xl font-semibold text-white mb-3">5. Your Rights</h3>
+          <h3 className="text-xl font-semibold text-white mb-3">6. Your Rights</h3>
           <p className="mb-4">You have the right to:</p>
           <ul className="list-disc list-inside space-y-2 ml-4">
             <li>Access and update your personal information</li>
@@ -294,7 +299,12 @@ function TermsOfService() {
         </section>
 
         <section>
-          <h3 className="text-xl font-semibold text-white mb-3">3. User Accounts</h3>
+          <h3 className="text-xl font-semibold text-white mb-3">3. Eligibility</h3>
+          <p>Our services are intended for individuals who are at least 16 years old. By creating an account, you confirm that you meet this age requirement and, if you are under the age of majority where you live, that you have permission from a parent or legal guardian to use AcademOra.</p>
+        </section>
+
+        <section>
+          <h3 className="text-xl font-semibold text-white mb-3">4. User Accounts</h3>
           <p className="mb-4">To access certain features of our service, you must register for an account. You agree to:</p>
           <ul className="list-disc list-inside space-y-2 ml-4">
             <li>Provide accurate, current, and complete information</li>
@@ -305,7 +315,7 @@ function TermsOfService() {
         </section>
 
         <section>
-          <h3 className="text-xl font-semibold text-white mb-3">4. Prohibited Uses</h3>
+          <h3 className="text-xl font-semibold text-white mb-3">5. Prohibited Uses</h3>
           <p className="mb-4">You may not use our service for any unlawful or unauthorized purpose. You agree not to:</p>
           <ul className="list-disc list-inside space-y-2 ml-4">
             <li>Violate any applicable laws or regulations</li>
@@ -317,12 +327,12 @@ function TermsOfService() {
         </section>
 
         <section>
-          <h3 className="text-xl font-semibold text-white mb-3">5. Content</h3>
+          <h3 className="text-xl font-semibold text-white mb-3">6. Content</h3>
           <p>You retain ownership of any content you submit to our service. By submitting content, you grant us a license to use, modify, and display it for the purpose of providing our service.</p>
         </section>
 
         <section>
-          <h3 className="text-xl font-semibold text-white mb-3">6. Termination</h3>
+          <h3 className="text-xl font-semibold text-white mb-3">7. Termination</h3>
           <p>We may terminate or suspend your account immediately, without prior notice or liability, for any reason whatsoever, including if you breach the Terms.</p>
         </section>
       </div>

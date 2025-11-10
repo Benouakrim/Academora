@@ -20,6 +20,7 @@ const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'))
 const AdminClaimsPage = lazy(() => import('./pages/admin/AdminClaimsPage'))
 const ArticleEditor = lazy(() => import('./pages/ArticleEditor'))
 const ArticlesList = lazy(() => import('./pages/admin/ArticlesList'))
+const ArticleAnalyticsPage = lazy(() => import('./pages/admin/ArticleAnalyticsPage'))
 const TaxonomiesPage = lazy(() => import('./pages/admin/TaxonomiesPage'))
 const TagsPage = lazy(() => import('./pages/admin/TagsPage'))
 const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage'))
@@ -51,6 +52,11 @@ import CareersPage from './pages/CareersPage'
 import { AccessControlProvider } from './context/AccessControlContext'
 const FeatureUsagePage = lazy(() => import('./pages/admin/FeatureUsagePage'))
 const AdminMediaPage = lazy(() => import('./pages/admin/AdminMediaPage'))
+const MyArticles = lazy(() => import('./pages/MyArticles'))
+const UserArticleEditor = lazy(() => import('./pages/UserArticleEditor'))
+const AdminReviewPortal = lazy(() => import('./pages/AdminReviewPortal'))
+const ReferralDashboard = lazy(() => import('./pages/ReferralDashboard'))
+const AdminReferrals = lazy(() => import('./pages/admin/AdminReferrals'))
 
 function App() {
   return (
@@ -81,6 +87,13 @@ function App() {
           <Route path={track("/admin/articles")} element={<ArticlesList />} />
           <Route path={track("/admin/articles/new")} element={<ArticleEditor />} />
           <Route path={track("/admin/articles/edit/:id")} element={<ArticleEditor />} />
+          <Route path={track("/admin/articles/analytics")} element={<ArticleAnalyticsPage />} />
+          <Route path={track("/admin/review")} element={<AdminReviewPortal />} />
+          <Route path={track("/admin/referrals")} element={<AdminReferrals />} />
+          <Route path={track("/my-articles")} element={<MyArticles />} />
+          <Route path={track("/write-article")} element={<UserArticleEditor />} />
+          <Route path={track("/write-article/:id")} element={<UserArticleEditor />} />
+          <Route path={track("/referrals")} element={<ReferralDashboard />} />
           <Route path={track("/admin/pages")} element={<PagesManagementPage />} />
           <Route path={track("/admin/pages/new")} element={<UnifiedPageEditor />} />
           <Route path={track("/admin/pages/:slug/edit")} element={<UnifiedPageEditor />} />

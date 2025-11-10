@@ -1,5 +1,6 @@
 import supabase from '../database/supabase.js';
 import { listArticleTerms, setArticleTerms } from './taxonomies.js';
+import { getHotArticlesByVelocity } from './articleViews.js';
 
 // Get all published articles
 export async function getArticles(categoryName = null) {
@@ -33,6 +34,137 @@ export async function getArticles(categoryName = null) {
     }
     // Otherwise wrap it
     throw new Error(error.message || 'Failed to fetch articles from database');
+  }
+}
+
+// Get similar articles (same category, excluding current article)
+export async function getSimilarArticles(currentArticleSlug, limit = 6) {
+  try {
+    // First get the current article to find its category
+    const currentArticle = await getArticleBySlug(currentArticleSlug);
+    if (!currentArticle) {
+      return [];
+    }
+
+    const { data, error } = await supabase
+      .from('articles')
+      .select('*')
+      .eq('published', true)
+      .eq('category', currentArticle.category)
+      .neq('slug', currentArticleSlug)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching similar articles:', error);
+    return [];
+  }
+}
+
+// Get recommended articles (algorithm-based recommendations)
+export async function getRecommendedArticles(currentArticleSlug, limit = 6) {
+  try {
+    // Get current article for context
+    const currentArticle = await getArticleBySlug(currentArticleSlug);
+    if (!currentArticle) {
+      return [];
+    }
+
+    // Algorithm: Mix of recent articles and articles from related categories
+    const { data: recentArticles, error: recentError } = await supabase
+      .from('articles')
+      .select('*')
+      .eq('published', true)
+      .neq('slug', currentArticleSlug)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (recentError) throw recentError;
+
+    // If we have enough recent articles, return them
+    if (recentArticles && recentArticles.length >= limit) {
+      return recentArticles.slice(0, limit);
+    }
+
+    // Otherwise, get more articles to fill the limit
+    const { data: additionalArticles, error: additionalError } = await supabase
+      .from('articles')
+      .select('*')
+      .eq('published', true)
+      .neq('slug', currentArticleSlug)
+      .not('slug', 'in', `(${recentArticles?.map(a => a.slug).join(',')})`)
+      .order('created_at', { ascending: false })
+      .limit(limit - (recentArticles?.length || 0));
+
+    if (additionalError) throw additionalError;
+
+    return [...(recentArticles || []), ...(additionalArticles || [])].slice(0, limit);
+  } catch (error) {
+    console.error('Error fetching recommended articles:', error);
+    return [];
+  }
+}
+
+// Get hot articles (updated to use view velocity)
+export async function getHotArticles(currentArticleSlug = null, limit = 6) {
+  try {
+    return await getHotArticlesByVelocity(currentArticleSlug, limit, '7d');
+  } catch (error) {
+    console.error('Error fetching hot articles:', error);
+    return [];
+  }
+}
+
+// Get latest articles
+export async function getLatestArticles(currentArticleSlug = null, limit = 6) {
+  try {
+    let query = supabase
+      .from('articles')
+      .select('*')
+      .eq('published', true)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (currentArticleSlug) {
+      query = query.neq('slug', currentArticleSlug);
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching latest articles:', error);
+    return [];
+  }
+}
+
+// Get all article sections data in one call
+export async function getArticleSections(currentArticleSlug, limit = 6) {
+  try {
+    const [similar, recommended, hot, latest] = await Promise.all([
+      getSimilarArticles(currentArticleSlug, limit),
+      getRecommendedArticles(currentArticleSlug, limit),
+      getHotArticles(currentArticleSlug, limit),
+      getLatestArticles(currentArticleSlug, limit)
+    ]);
+
+    return {
+      similar,
+      recommended,
+      hot,
+      latest
+    };
+  } catch (error) {
+    console.error('Error fetching article sections:', error);
+    return {
+      similar: [],
+      recommended: [],
+      hot: [],
+      latest: []
+    };
   }
 }
 

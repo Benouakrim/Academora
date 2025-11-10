@@ -11,6 +11,8 @@ import TextAlign from '@tiptap/extension-text-align';
 import Highlight from '@tiptap/extension-highlight';
 import LinkExtension from '@tiptap/extension-link';
 import ImageExtension from '@tiptap/extension-image';
+import { TextStyle } from '@tiptap/extension-text-style';
+import { FontSize } from '../extensions/FontSize';
 import ImageUpload from '../components/ImageUpload';
 import EditorToolbar from '../components/EditorToolbar';
 import '../styles/editor.css';
@@ -51,6 +53,8 @@ export default function ArticleEditor() {
     extensions: [
       StarterKit,
       Underline,
+      TextStyle,
+      FontSize,
       TextAlign.configure({
         types: ['heading', 'paragraph'],
       }),
@@ -82,7 +86,10 @@ export default function ArticleEditor() {
   // Route validation
   useEffect(() => {
     // Check if we're on the wrong route
-    if (!location.pathname.startsWith('/admin/articles/edit/')) {
+    const validRoutes = ['/admin/articles/new', '/admin/articles/edit/'];
+    const isValidRoute = validRoutes.some(route => location.pathname.startsWith(route));
+    
+    if (!isValidRoute) {
       setError('Wrong route detected. Redirecting to admin dashboard...');
       setTimeout(() => {
         navigate('/admin');

@@ -18,6 +18,8 @@
     "test:matching": "node server/scripts/testMatchingApi.cjs"
   },
   "dependencies": {
+    "@sentry/node": "^8.39.0",
+    "@sentry/react": "^8.39.0",
     "@supabase/supabase-js": "^2.38.4",
     "@tiptap/extension-color": "^3.10.1",
     "@tiptap/extension-font-family": "^3.10.1",
@@ -34,7 +36,9 @@
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
+    "express-rate-limit": "^7.4.0",
     "framer-motion": "^12.23.24",
+    "helmet": "^7.1.0",
     "i18next": "^23.7.6",
     "i18next-browser-languagedetector": "^7.2.0",
     "i18next-fetch-backend": "^7.0.0",
@@ -46,11 +50,15 @@
     "node-mailjet": "^6.0.4",
     "nodemailer": "^7.0.10",
     "pg": "^8.16.3",
+    "pino-http": "^10.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-i18next": "^13.5.0",
     "react-router-dom": "^6.20.0",
-    "uuid": "^13.0.0"
+    "recharts": "^3.4.1",
+    "stripe": "^16.8.0",
+    "uuid": "^13.0.0",
+    "zod": "^3.24.1"
   },
   "devDependencies": {
     "@types/bcrypt": "^5.0.2",
@@ -68,6 +76,7 @@
     "eslint-plugin-react-refresh": "^0.4.5",
     "eslint-plugin-tailwindcss": "^3.18.2",
     "postcss": "^8.4.32",
+    "supertest": "^7.0.0",
     "tailwindcss": "^3.3.6",
     "typescript": "^5.2.2",
     "vite": "^7.1.12"

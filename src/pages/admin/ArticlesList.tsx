@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { adminAPI } from '../../lib/api'
+import { BarChart3 } from 'lucide-react'
 
 interface Row {
   id: string
@@ -37,7 +38,16 @@ export default function ArticlesList() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-6 flex items-center justify-between">
           <h1 className="text-3xl font-bold text-gray-900">Articles</h1>
-          <Link to="/admin/articles/new" className="btn-primary">New Article</Link>
+          <div className="flex items-center gap-3">
+            <Link 
+              to="/admin/articles/analytics" 
+              className="flex items-center gap-2 px-4 py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
+            >
+              <BarChart3 className="h-4 w-4" />
+              View Analytics
+            </Link>
+            <Link to="/admin/articles/new" className="btn-primary">New Article</Link>
+          </div>
         </div>
         <div className="mb-4">
           <input value={q} onChange={(e)=> setQ(e.target.value)} placeholder="Search by title or slug" className="w-full sm:w-80 px-3 py-2 border rounded-md" />

@@ -5,6 +5,9 @@ import crypto from 'crypto';
 import { sendPasswordResetEmail } from '../services/email.js';
 import fetch from 'node-fetch';
 import { parseUserToken, requireUser } from '../middleware/auth.js';
+import { validate } from '../middleware/validate.js';
+import { signupSchema, loginSchema, forgotSchema, resetSchema } from '../validation/authSchemas.js';
+import { referrals } from '../data/referrals.js';
 
 const router = express.Router();
 
@@ -15,9 +18,9 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-producti
 const resetTokens = new Map();
 
 // Sign up
-router.post('/signup', async (req, res) => {
+router.post('/signup', validate(signupSchema), async (req, res) => {
   try {
-    const { identifier, email: bodyEmail, phone: bodyPhone, password, accountType } = req.body;
+    const { identifier, email: bodyEmail, phone: bodyPhone, password, accountType, referralCode } = req.validated;
     const normalizedIdentifier = identifier ? String(identifier).trim() : '';
 
     if (!normalizedIdentifier && !bodyEmail) {
@@ -54,6 +57,16 @@ router.post('/signup', async (req, res) => {
       return res.status(400).json({ error: 'User already exists' });
     }
 
+    // Validate referral code if provided
+    let validReferralCode = null;
+    if (referralCode) {
+      const validation = await referrals.validateCode(referralCode);
+      if (!validation.valid) {
+        return res.status(400).json({ error: validation.error || 'Invalid referral code' });
+      }
+      validReferralCode = referralCode;
+    }
+
     // Create user with 'user' role by default
     const user = await createUser({
       email,
@@ -61,7 +74,18 @@ router.post('/signup', async (req, res) => {
       role: 'user',
       phone,
       accountType: accountType || null,
+      referredByCode: validReferralCode,
     });
+
+    // Create referral relationship if referral code was used
+    if (validReferralCode) {
+      try {
+        await referrals.createReferral(validReferralCode, user.id);
+      } catch (referralError) {
+        // Log error but don't fail signup
+        console.error('Failed to create referral relationship:', referralError);
+      }
+    }
 
     const tokenPayload = {
       id: user.id,
@@ -86,9 +110,9 @@ router.post('/signup', async (req, res) => {
 });
 
 // Login
-router.post('/login', async (req, res) => {
+router.post('/login', validate(loginSchema), async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password } = req.validated;
 
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required' });
@@ -143,9 +167,9 @@ router.get('/me', parseUserToken, requireUser, async (req, res) => {
 });
 
 // Request password reset (dev implementation: logs token link to console)
-router.post('/forgot', async (req, res) => {
+router.post('/forgot', validate(forgotSchema), async (req, res) => {
   try {
-    const { email } = req.body;
+    const { email } = req.validated;
     if (!email) return res.status(400).json({ error: 'Email is required' });
 
     const user = await findUserByEmail(email);
@@ -192,9 +216,9 @@ router.post('/forgot', async (req, res) => {
 });
 
 // Perform password reset using token
-router.post('/reset', async (req, res) => {
+router.post('/reset', validate(resetSchema), async (req, res) => {
   try {
-    const { email, token, password } = req.body;
+    const { email, token, password } = req.validated;
     if (!email || !token || !password) return res.status(400).json({ error: 'Email, token and new password are required' });
 
     const stored = resetTokens.get(email);
@@ -219,11 +243,24 @@ export default router;
 // --- OAuth (Google & LinkedIn) ---
 
 // Google OAuth using authorization code flow
+// Simple in-memory state store for dev (prevents CSRF)
+const oauthStates = new Set();
+
 router.get('/oauth/google/start', (req, res) => {
+  // Guard against missing configuration
+  if (process.env.GOOGLE_OAUTH_ENABLED === 'false') {
+    return res.status(503).json({ error: 'Google OAuth disabled' });
+  }
   const clientId = process.env.GOOGLE_CLIENT_ID;
+  if (!clientId) {
+    return res.status(503).json({ error: 'Google OAuth not configured (GOOGLE_CLIENT_ID missing)' });
+  }
   const redirectUri = (process.env.API_BASE_URL || `http://localhost:${process.env.PORT || 3001}`) + '/api/auth/oauth/google/callback';
   const scope = encodeURIComponent('openid email profile');
-  const state = 'state';
+  // Generate a random state and keep it shortly
+  const state = Math.random().toString(36).slice(2);
+  oauthStates.add(state);
+  setTimeout(() => oauthStates.delete(state), 10 * 60 * 1000); // 10 minutes
   const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?response_type=code&client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&state=${state}`;
   res.redirect(authUrl);
 });
@@ -233,7 +270,16 @@ router.get('/oauth/google/callback', async (req, res) => {
     const code = req.query.code;
     const clientId = process.env.GOOGLE_CLIENT_ID;
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    if (!clientId || !clientSecret) {
+      return res.status(503).json({ error: 'Google OAuth not configured (client id/secret missing)' });
+    }
     const redirectUri = (process.env.API_BASE_URL || `http://localhost:${process.env.PORT || 3001}`) + '/api/auth/oauth/google/callback';
+
+    // Validate state if present
+    if (req.query.state && !oauthStates.has(String(req.query.state))) {
+      return res.status(400).json({ error: 'Invalid OAuth state' });
+    }
+    oauthStates.delete(String(req.query.state || ''));
 
     // Exchange code for tokens
     const tokenRes = await fetch('https://oauth2.googleapis.com/token', {

@@ -1,45 +1,62 @@
 import { ComponentType, FormEvent, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Building, GraduationCap, Landmark, ShieldCheck, Sparkles, Users } from 'lucide-react'
+import { Building, GraduationCap, Landmark, MinusCircle, Plus, ShieldCheck, Sparkles, Users } from 'lucide-react'
 import { onboardingAPI } from '../lib/api'
 
 const classNames = (...classes: (string | false | null | undefined)[]) => classes.filter(Boolean).join(' ')
 
 type AccountTypeKey = 'individual' | 'institution'
 
+type ContactGroupKey = 'individualEmail' | 'individualPhone' | 'institutionEmail' | 'institutionPhone'
+
+type FieldCommon = {
+  name: string
+  label: string
+  placeholder?: string
+  description?: string
+  required?: boolean
+  group?: ContactGroupKey
+  dynamicIndex?: number
+}
+
 type FieldConfig =
-  | {
-      name: string
-      label: string
-      placeholder?: string
-      description?: string
-      required?: boolean
-      type?: 'text' | 'email' | 'password' | 'date'
+  | (FieldCommon & {
+      type?: 'text' | 'email' | 'password' | 'date' | 'tel'
       component?: 'input'
-    }
-  | {
-      name: string
-      label: string
-      placeholder?: string
-      description?: string
-      required?: boolean
+    })
+  | (FieldCommon & {
       component: 'select'
       options: { value: string; label: string }[]
-    }
-  | {
-      name: string
-      label: string
-      placeholder?: string
-      description?: string
-      required?: boolean
+    })
+  | (FieldCommon & {
       component: 'textarea'
-    }
+    })
+  | (FieldCommon & {
+      component: 'multiselect'
+      options: { value: string; label: string }[]
+    })
 
 interface WizardStep {
   id: string
   title: string
   subtitle: string
   fields: FieldConfig[]
+}
+
+const parseMultiSelectValue = (rawValue: string | undefined): string[] => {
+  if (!rawValue) return []
+  try {
+    const parsed = JSON.parse(rawValue)
+    if (Array.isArray(parsed)) {
+      return parsed.map((entry) => String(entry))
+    }
+  } catch (error) {
+    // fall through to comma parsing
+  }
+  return rawValue
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean)
 }
 
 interface AccountType {
@@ -129,6 +146,178 @@ const individualSteps: WizardStep[] = [
   }
 ]
 
+const INSTITUTION_USE_CASE_OPTIONS = [
+  { value: 'student-admissions', label: 'Student admissions' },
+  { value: 'alumni-engagement', label: 'Alumni engagement' },
+  { value: 'partnership-tracking', label: 'Partner relationship tracking' },
+  { value: 'scholarship-management', label: 'Scholarship management' },
+  { value: 'workforce-development', label: 'Workforce development' },
+  { value: 'analytics-reporting', label: 'Analytics & reporting' },
+  { value: 'marketing-outreach', label: 'Marketing & outreach' },
+  { value: 'learner-support', label: 'Learner support services' },
+]
+
+type ContactFieldTemplate = {
+  name: string
+  label: string
+  placeholder: string
+  required: boolean
+  type: 'email' | 'tel'
+}
+
+const CONTACT_GROUP_CONFIG: Record<ContactGroupKey, { min: number; max: number; fields: ContactFieldTemplate[] }> = {
+  individualEmail: {
+    min: 1,
+    max: 3,
+    fields: [
+      { name: 'email', label: 'Primary email address', placeholder: 'you@example.com', required: true, type: 'email' },
+      {
+        name: 'emailExtra1',
+        label: 'Additional email address 2',
+        placeholder: 'team@yourdomain.com',
+        required: true,
+        type: 'email',
+      },
+      {
+        name: 'emailExtra2',
+        label: 'Additional email address 3',
+        placeholder: 'support@yourdomain.com',
+        required: true,
+        type: 'email',
+      },
+    ],
+  },
+  individualPhone: {
+    min: 0,
+    max: 3,
+    fields: [
+      {
+        name: 'phone',
+        label: 'Primary phone number',
+        placeholder: '+1 (555) 123-4567',
+        required: false,
+        type: 'tel',
+      },
+      {
+        name: 'phoneExtra1',
+        label: 'Additional phone number 2',
+        placeholder: '+1 (555) 234-5678',
+        required: true,
+        type: 'tel',
+      },
+      {
+        name: 'phoneExtra2',
+        label: 'Additional phone number 3',
+        placeholder: '+1 (555) 345-6789',
+        required: true,
+        type: 'tel',
+      },
+    ],
+  },
+  institutionEmail: {
+    min: 1,
+    max: 5,
+    fields: [
+      {
+        name: 'contactEmail',
+        label: 'Primary contact email',
+        placeholder: 'you@institution.org',
+        required: true,
+        type: 'email',
+      },
+      {
+        name: 'contactEmailExtra1',
+        label: 'Additional contact email 2',
+        placeholder: 'team@institution.org',
+        required: true,
+        type: 'email',
+      },
+      {
+        name: 'contactEmailExtra2',
+        label: 'Additional contact email 3',
+        placeholder: 'support@institution.org',
+        required: true,
+        type: 'email',
+      },
+      {
+        name: 'contactEmailExtra3',
+        label: 'Additional contact email 4',
+        placeholder: 'info@institution.org',
+        required: true,
+        type: 'email',
+      },
+      {
+        name: 'contactEmailExtra4',
+        label: 'Additional contact email 5',
+        placeholder: 'admin@institution.org',
+        required: true,
+        type: 'email',
+      },
+    ],
+  },
+  institutionPhone: {
+    min: 0,
+    max: 5,
+    fields: [
+      {
+        name: 'contactPhone',
+        label: 'Primary contact phone number',
+        placeholder: '+1 (555) 123-4567',
+        required: false,
+        type: 'tel',
+      },
+      {
+        name: 'contactPhoneExtra1',
+        label: 'Additional contact phone number 2',
+        placeholder: '+1 (555) 234-5678',
+        required: true,
+        type: 'tel',
+      },
+      {
+        name: 'contactPhoneExtra2',
+        label: 'Additional contact phone number 3',
+        placeholder: '+1 (555) 345-6789',
+        required: true,
+        type: 'tel',
+      },
+      {
+        name: 'contactPhoneExtra3',
+        label: 'Additional contact phone number 4',
+        placeholder: '+1 (555) 456-7890',
+        required: true,
+        type: 'tel',
+      },
+      {
+        name: 'contactPhoneExtra4',
+        label: 'Additional contact phone number 5',
+        placeholder: '+1 (555) 567-8901',
+        required: true,
+        type: 'tel',
+      },
+    ],
+  },
+}
+
+const CONTACT_FIELD_NAME_SET = new Set(
+  Object.values(CONTACT_GROUP_CONFIG)
+    .map((config) => config.fields.map((field) => field.name))
+    .flat()
+)
+
+const buildContactFields = (group: ContactGroupKey, count: number): FieldConfig[] => {
+  const config = CONTACT_GROUP_CONFIG[group]
+  return config.fields.slice(0, count).map((template, index) => ({
+    name: template.name,
+    label: template.label,
+    placeholder: template.placeholder,
+    required: index === 0 ? template.required : true,
+    type: template.type,
+    component: 'input',
+    group,
+    dynamicIndex: index,
+  }))
+}
+
 const institutionSteps: WizardStep[] = [
   {
     id: 'organization',
@@ -178,9 +367,10 @@ const institutionSteps: WizardStep[] = [
       {
         name: 'useCases',
         label: 'Primary use cases',
-        component: 'textarea',
-        placeholder: 'Student admissions, alumni engagement, partnership tracking…',
-        description: 'You can list multiple comma-separated goals.',
+        component: 'multiselect',
+        placeholder: 'Select one or more primary use cases.',
+        description: 'Select all that apply. We use this to tailor your workspace setup.',
+        options: INSTITUTION_USE_CASE_OPTIONS,
         required: true
       },
       {
@@ -239,6 +429,13 @@ Object.values(ACCOUNT_TYPE_CONFIG).forEach((type) => {
     })
   })
 })
+Object.values(CONTACT_GROUP_CONFIG).forEach((config) => {
+  config.fields.forEach((field) => {
+    if (!(field.name in baseFormData)) {
+      baseFormData[field.name] = ''
+    }
+  })
+})
 
 export default function RegisterPage() {
   const navigate = useNavigate()
@@ -247,12 +444,51 @@ export default function RegisterPage() {
   const selectedType = useMemo(() => ACCOUNT_TYPE_CONFIG[accountTypeParam as AccountTypeKey], [accountTypeParam])
   const [currentStepIndex, setCurrentStepIndex] = useState(0)
   const [formData, setFormData] = useState<FormDataState>(baseFormData)
+  const [contactFieldCounts, setContactFieldCounts] = useState<Record<ContactGroupKey, number>>({
+    individualEmail: CONTACT_GROUP_CONFIG.individualEmail.min,
+    individualPhone: CONTACT_GROUP_CONFIG.individualPhone.min,
+    institutionEmail: CONTACT_GROUP_CONFIG.institutionEmail.min,
+    institutionPhone: Math.max(CONTACT_GROUP_CONFIG.institutionPhone.min, 1),
+  })
   const [error, setError] = useState<string | null>(null)
+  const [ageWarning, setAgeWarning] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [submissionNote, setSubmissionNote] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [prefilledContact, setPrefilledContact] = useState(false)
 
   const steps = selectedType?.steps ?? []
+  const currentStep = steps[currentStepIndex]
+
+  const currentFields = useMemo(() => {
+    if (!currentStep) return []
+    const nonContactFields = currentStep.fields
+      .filter((field) => !CONTACT_FIELD_NAME_SET.has(field.name))
+      .map((field) => ({ ...field })) as FieldConfig[]
+
+    if (!selectedType) {
+      return nonContactFields
+    }
+
+    if (currentStep.id === 'contact') {
+      if (selectedType.id === 'individual') {
+        return [
+          ...buildContactFields('individualEmail', contactFieldCounts.individualEmail),
+          ...buildContactFields('individualPhone', contactFieldCounts.individualPhone),
+          ...nonContactFields,
+        ]
+      }
+      if (selectedType.id === 'institution') {
+        return [
+          ...buildContactFields('institutionEmail', contactFieldCounts.institutionEmail),
+          ...buildContactFields('institutionPhone', contactFieldCounts.institutionPhone),
+          ...nonContactFields,
+        ]
+      }
+    }
+
+    return nonContactFields
+  }, [contactFieldCounts, currentStep, selectedType])
 
   useEffect(() => {
     if (!selectedType) {
@@ -260,12 +496,127 @@ export default function RegisterPage() {
     }
   }, [navigate, selectedType])
 
+  useEffect(() => {
+    if (!selectedType || prefilledContact) return
+    if (typeof window === 'undefined') return
+
+    try {
+      const storedContact = localStorage.getItem('academora:pendingSignUpContact')
+      if (!storedContact) {
+        setPrefilledContact(true)
+        return
+      }
+      const parsed = JSON.parse(storedContact) as {
+        type?: string
+        email?: string
+        phone?: string
+      }
+      setFormData((prev) => {
+        const next = { ...prev }
+        if (parsed.email) {
+          if (!next.email) next.email = parsed.email
+          if (!next.contactEmail) next.contactEmail = parsed.email
+        }
+        if (parsed.phone) {
+          if (!next.contactPhone) next.contactPhone = parsed.phone
+          if (!next.phone) next.phone = parsed.phone
+        }
+        return next
+      })
+      setContactFieldCounts((prev) => {
+        if (!selectedType) return prev
+        const nextCounts = { ...prev }
+        if (parsed.email) {
+          if (selectedType.id === 'individual') {
+            nextCounts.individualEmail = Math.max(prev.individualEmail, 1)
+          } else if (selectedType.id === 'institution') {
+            nextCounts.institutionEmail = Math.max(prev.institutionEmail, 1)
+          }
+        }
+        if (parsed.phone) {
+          if (selectedType.id === 'individual') {
+            nextCounts.individualPhone = Math.max(prev.individualPhone, 1)
+          } else if (selectedType.id === 'institution') {
+            nextCounts.institutionPhone = Math.max(prev.institutionPhone, 1)
+          }
+        }
+        return nextCounts
+      })
+    } catch (storageError) {
+      console.warn('Unable to pre-fill onboarding contact details', storageError)
+    } finally {
+      setPrefilledContact(true)
+      try {
+        localStorage.removeItem('academora:pendingSignUpContact')
+      } catch (cleanupError) {
+        console.warn('Unable to clear pending sign-up contact storage', cleanupError)
+      }
+    }
+  }, [prefilledContact, selectedType])
+
   const handleFieldChange = (name: string, value: string) => {
+    setError(null)
     setFormData((prev) => ({ ...prev, [name]: value }))
+    if ([
+      'dateOfBirth',
+      'contactDateOfBirth'
+    ].includes(name)) {
+      if (!value) {
+        setAgeWarning(null)
+        return
+      }
+      const birthDate = new Date(value)
+      if (Number.isNaN(birthDate.getTime())) {
+        setAgeWarning(null)
+        return
+      }
+      const today = new Date()
+      let age = today.getFullYear() - birthDate.getFullYear()
+      const monthDiff = today.getMonth() - birthDate.getMonth()
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        age--
+      }
+      if (age < 16) {
+        setAgeWarning("You're under 16 years old, so you can't continue.")
+      } else {
+        setAgeWarning(null)
+      }
+    }
   }
 
-  const validateStep = (step: WizardStep) => {
-    const missingField = step.fields.find((field) => field.required && !formData[field.name]?.trim())
+  const handleAddContactField = (group: ContactGroupKey) => {
+    setContactFieldCounts((prev) => {
+      const config = CONTACT_GROUP_CONFIG[group]
+      if (prev[group] >= config.max) {
+        return prev
+      }
+      return { ...prev, [group]: prev[group] + 1 }
+    })
+  }
+
+  const handleRemoveContactField = (group: ContactGroupKey, fieldName: string) => {
+    const config = CONTACT_GROUP_CONFIG[group]
+    setContactFieldCounts((prev) => {
+      const activeCount = prev[group]
+      const index = config.fields.findIndex((field) => field.name === fieldName)
+      if (index === -1 || index !== activeCount - 1 || activeCount <= config.min) {
+        return prev
+      }
+      const nextCount = Math.max(config.min, activeCount - 1)
+      return { ...prev, [group]: nextCount }
+    })
+    setFormData((prev) => ({ ...prev, [fieldName]: '' }))
+  }
+
+  const validateStep = (fields: FieldConfig[]) => {
+    const missingField = fields.find((field) => {
+      if (!field.required) return false
+      const value = formData[field.name]
+      if (field.component === 'multiselect') {
+        return parseMultiSelectValue(value).length === 0
+      }
+      return !value?.trim()
+    })
     if (missingField) {
       setError(`${missingField.label} is required`)
       return false
@@ -276,13 +627,17 @@ export default function RegisterPage() {
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
-    if (!selectedType || !steps.length) {
+    if (!selectedType || !steps.length || !currentStep) {
       navigate('/signup')
       return
     }
 
-    const currentStep = steps[currentStepIndex]
-    if (!validateStep(currentStep)) return
+    if (!validateStep(currentFields)) return
+
+    if (ageWarning) {
+      setError("You're under 16 years old, so you can't continue.")
+      return
+    }
 
     if (currentStepIndex < steps.length - 1) {
       setCurrentStepIndex((prev) => prev + 1)
@@ -295,9 +650,23 @@ export default function RegisterPage() {
     setSubmissionNote(null)
 
     try {
+      const normalizedAnswers: Record<string, string> = { ...formData }
+      const useCaseRaw = formData.useCases
+      if (useCaseRaw !== undefined) {
+        const selectedUseCases = parseMultiSelectValue(useCaseRaw)
+        if (selectedUseCases.length > 0) {
+          const readable = selectedUseCases
+            .map((value) => INSTITUTION_USE_CASE_OPTIONS.find((option) => option.value === value)?.label || value)
+            .join(', ')
+          normalizedAnswers.useCases = readable
+        } else {
+          normalizedAnswers.useCases = ''
+        }
+      }
+
       const submissionPayload = {
         accountType: selectedType.id,
-        answers: formData,
+        answers: normalizedAnswers,
         metadata: {
           completedAt: new Date().toISOString(),
           stepsCompleted: steps.length,
@@ -328,7 +697,7 @@ export default function RegisterPage() {
     }
   }
 
-  if (!selectedType) {
+  if (!selectedType || !currentStep) {
     return null
   }
 
@@ -422,22 +791,102 @@ export default function RegisterPage() {
           </div>
 
           <div className="rounded-2xl border border-gray-100 bg-gray-50 p-6">
-            <h3 className="text-xl font-semibold text-gray-900">{steps[currentStepIndex].title}</h3>
-            <p className="mt-1 text-sm text-gray-600">{steps[currentStepIndex].subtitle}</p>
+            <h3 className="text-xl font-semibold text-gray-900">{currentStep.title}</h3>
+            <p className="mt-1 text-sm text-gray-600">{currentStep.subtitle}</p>
 
             <div className="mt-6 grid gap-5 md:grid-cols-2">
-              {steps[currentStepIndex].fields.map((field) => (
-                <div key={field.name} className="space-y-2">
-                  <label htmlFor={field.name} className="text-sm font-medium text-gray-700">
-                    {field.label}
-                    {field.required && <span className="text-red-500"> *</span>}
-                  </label>
-                  {renderField(field, formData[field.name] || '', handleFieldChange)}
-                  {'description' in field && field.description && (
-                    <p className="text-xs text-gray-500">{field.description}</p>
-                  )}
+              {currentFields.map((field) => {
+                const fieldValue = formData[field.name] || ''
+                const isDateField = field.type === 'date'
+                const contactGroup = field.group
+                const contactConfig = contactGroup ? CONTACT_GROUP_CONFIG[contactGroup] : null
+                const activeCount = contactGroup ? contactFieldCounts[contactGroup] : null
+                const isEmailGroup = contactGroup ? contactGroup.includes('Email') : false
+                const canAdd =
+                  !!contactGroup &&
+                  !!contactConfig &&
+                  activeCount !== null &&
+                  field.dynamicIndex === activeCount - 1 &&
+                  activeCount < contactConfig.max
+                const canRemove =
+                  !!contactGroup &&
+                  !!contactConfig &&
+                  activeCount !== null &&
+                  activeCount > contactConfig.min &&
+                  field.dynamicIndex === activeCount - 1
+                const showOptionalNote = !!contactGroup && field.dynamicIndex === 0 && !field.required
+                return (
+                  <div
+                    key={field.name}
+                    className={classNames('space-y-2', field.component === 'multiselect' ? 'md:col-span-2' : '')}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="flex-1 space-y-2">
+                        <label htmlFor={field.name} className="text-sm font-medium text-gray-700">
+                          {field.label}
+                          {field.required && <span className="text-red-500"> *</span>}
+                        </label>
+                        {renderField(field, fieldValue, handleFieldChange, isDateField ? ageWarning : null)}
+                        {'description' in field && field.description && (
+                          <p className="text-xs text-gray-500">{field.description}</p>
+                        )}
+                        {isDateField && ageWarning && <p className="text-xs text-red-500">{ageWarning}</p>}
+                        {showOptionalNote && <p className="text-xs text-gray-400">Optional</p>}
+                      </div>
+                      {contactGroup && (
+                        <div className="flex flex-col gap-2 pt-7">
+                          {canAdd && (
+                            <button
+                              type="button"
+                              onClick={() => handleAddContactField(contactGroup)}
+                              className="inline-flex items-center gap-1 rounded-full border border-primary-100 bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-700 hover:bg-primary-100"
+                            >
+                              <Plus className="h-4 w-4" />
+                              {isEmailGroup ? 'Add email' : 'Add phone'}
+                            </button>
+                          )}
+                          {canRemove && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveContactField(contactGroup, field.name)}
+                              className="inline-flex items-center gap-1 rounded-full border border-red-100 bg-red-50 px-3 py-1 text-xs font-semibold text-red-600 hover:bg-red-100"
+                            >
+                              <MinusCircle className="h-4 w-4" />
+                              {isEmailGroup ? 'Remove email' : 'Remove phone'}
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+              {currentStep.id === 'contact' && selectedType.id === 'individual' && contactFieldCounts.individualPhone === 0 && (
+                <div className="md:col-span-2 flex items-center justify-between rounded-xl border border-dashed border-gray-200 bg-white px-4 py-3">
+                  <p className="text-sm text-gray-500">No phone numbers added yet.</p>
+                  <button
+                    type="button"
+                    onClick={() => handleAddContactField('individualPhone')}
+                    className="inline-flex items-center gap-2 rounded-full border border-primary-100 bg-primary-50 px-3 py-1.5 text-xs font-semibold text-primary-700 hover:bg-primary-100"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add phone
+                  </button>
                 </div>
-              ))}
+              )}
+              {currentStep.id === 'contact' && selectedType.id === 'institution' && contactFieldCounts.institutionPhone === 0 && (
+                <div className="md:col-span-2 flex items-center justify-between rounded-xl border border-dashed border-gray-200 bg-white px-4 py-3">
+                  <p className="text-sm text-gray-500">No phone numbers added yet.</p>
+                  <button
+                    type="button"
+                    onClick={() => handleAddContactField('institutionPhone')}
+                    className="inline-flex items-center gap-2 rounded-full border border-primary-100 bg-primary-50 px-3 py-1.5 text-xs font-semibold text-primary-700 hover:bg-primary-100"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add phone
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -475,7 +924,7 @@ export default function RegisterPage() {
               )}
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || !!ageWarning}
                 className="inline-flex items-center gap-2 rounded-xl bg-primary-600 px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-primary-200/50 transition hover:bg-primary-700 disabled:opacity-60"
               >
                 {currentStepIndex < steps.length - 1 ? 'Continue' : isSubmitting ? 'Finishing…' : 'Finish onboarding'}
@@ -491,7 +940,8 @@ export default function RegisterPage() {
 function renderField(
   field: FieldConfig,
   value: string,
-  onChange: (name: string, nextValue: string) => void
+  onChange: (name: string, nextValue: string) => void,
+  warning: string | null = null
 ) {
   const baseClasses =
     'w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm shadow-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-200 transition'
@@ -529,15 +979,72 @@ function renderField(
     )
   }
 
+  if (field.component === 'multiselect') {
+    const selectedValues = parseMultiSelectValue(value)
+    const toggleValue = (optionValue: string) => {
+      const isSelected = selectedValues.includes(optionValue)
+      const nextValues = isSelected
+        ? selectedValues.filter((entry) => entry !== optionValue)
+        : [...selectedValues, optionValue]
+      onChange(field.name, JSON.stringify(nextValues))
+    }
+
+    return (
+      <div className="space-y-2">
+        <div className="flex flex-wrap gap-2">
+          {field.options.map((option) => {
+            const isSelected = selectedValues.includes(option.value)
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => toggleValue(option.value)}
+                className={classNames(
+                  'rounded-full border px-3 py-1.5 text-xs font-semibold transition',
+                  isSelected
+                    ? 'border-primary-200 bg-primary-50 text-primary-700 shadow-sm hover:bg-primary-100'
+                    : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-100'
+                )}
+              >
+                {option.label}
+              </button>
+            )
+          })}
+        </div>
+        {selectedValues.length > 0 ? (
+          <div className="flex flex-wrap gap-2 text-xs text-primary-700">
+            {selectedValues.map((selection) => {
+              const label = field.options.find((option) => option.value === selection)?.label || selection
+              return (
+                <span
+                  key={selection}
+                  className="inline-flex items-center gap-1 rounded-full bg-primary-50 px-3 py-1 text-primary-700"
+                >
+                  {label}
+                </span>
+              )
+            })}
+          </div>
+        ) : (
+          <p className="text-xs text-gray-500">
+            {field.placeholder || 'Select all that apply to your organization.'}
+          </p>
+        )}
+      </div>
+    )
+  }
+
   return (
     <input
       id={field.name}
       name={field.name}
       type={field.type || 'text'}
       value={value}
+      max={field.type === 'date' ? new Date().toISOString().split('T')[0] : undefined}
       onChange={(event) => onChange(field.name, event.target.value)}
       placeholder={field.placeholder}
-      className={baseClasses}
+      inputMode={field.type === 'tel' ? 'tel' : undefined}
+      className={`${baseClasses} ${warning ? 'border-red-300 focus:border-red-400 focus:ring-red-200' : ''}`}
     />
   )
 }

@@ -51,6 +51,8 @@ export default function Layout({ children }: LayoutProps) {
       /^\/admin\/pages\/(new|.*\/edit)$/,   // /admin/pages/new or /admin/pages/:slug/edit
       /^\/admin\/universities\/(new|edit\/)/, // /admin/universities/new or /admin/universities/edit/:id
       /^\/admin\/university-groups\/(new|edit\/)/, // /admin/university-groups/new or /admin/university-groups/edit/:id
+      /^\/write-article(\/\d+)?$/,  // /write-article or /write-article/:id
+      /^\/admin\/review$/,  // /admin/review
     ];
     
     return editorPatterns.some(pattern => pattern.test(pathname));

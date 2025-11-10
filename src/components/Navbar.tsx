@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
-import { Menu, X, User, LogOut, Sparkles, Settings, Bell, ChevronDown, BookOpen, FileText, Info, Phone, Shield, Heart } from 'lucide-react'
+import { Menu, X, User, LogOut, Sparkles, Settings, Bell, ChevronDown, BookOpen, FileText, Info, Phone, Shield, Heart, PenSquare, FileEdit, Gift } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { authAPI, getCurrentUser, staticPagesAPI, notificationsAPI } from '../lib/api'
 import LanguageSwitcher from './LanguageSwitcher'
@@ -231,12 +231,33 @@ export default function Navbar({ onAdminMenuToggle, showAdminMenu }: NavbarProps
                           </Link>
                           <Link
                             to="/blog?view=docs"
-                            className="flex items-center gap-3 px-4 py-3 text-gray-300 hover:text-white hover:bg-white/5 transition-colors rounded-b-lg"
+                            className="flex items-center gap-3 px-4 py-3 text-gray-300 hover:text-white hover:bg-white/5 transition-colors"
                             onClick={() => setIsReadDropdownOpen(false)}
                           >
                             <FileText className="h-4 w-4" />
                             <span>Docs</span>
                           </Link>
+                          {user && (
+                            <>
+                              <div className="border-t border-gray-700/50 my-1"></div>
+                              <Link
+                                to="/my-articles"
+                                className="flex items-center gap-3 px-4 py-3 text-gray-300 hover:text-white hover:bg-white/5 transition-colors"
+                                onClick={() => setIsReadDropdownOpen(false)}
+                              >
+                                <FileEdit className="h-4 w-4" />
+                                <span>My Articles</span>
+                              </Link>
+                              <Link
+                                to="/write-article"
+                                className="flex items-center gap-3 px-4 py-3 text-gray-300 hover:text-white hover:bg-white/5 transition-colors rounded-b-lg"
+                                onClick={() => setIsReadDropdownOpen(false)}
+                              >
+                                <PenSquare className="h-4 w-4" />
+                                <span>Write Article</span>
+                              </Link>
+                            </>
+                          )}
                         </motion.div>
                       )}
                     </AnimatePresence>
@@ -584,6 +605,32 @@ export default function Navbar({ onAdminMenuToggle, showAdminMenu }: NavbarProps
                               <FileText className="h-4 w-4" />
                               <span>Docs</span>
                             </Link>
+                            {user && (
+                              <>
+                                <Link
+                                  to="/my-articles"
+                                  className="flex items-center gap-3 pl-8 pr-4 py-3 text-gray-300 hover:text-white hover:bg-white/5 transition-colors"
+                                  onClick={() => {
+                                    setIsReadDropdownOpen(false)
+                                    setIsOpen(false)
+                                  }}
+                                >
+                                  <FileEdit className="h-4 w-4" />
+                                  <span>My Articles</span>
+                                </Link>
+                                <Link
+                                  to="/write-article"
+                                  className="flex items-center gap-3 pl-8 pr-4 py-3 text-gray-300 hover:text-white hover:bg-white/5 transition-colors"
+                                  onClick={() => {
+                                    setIsReadDropdownOpen(false)
+                                    setIsOpen(false)
+                                  }}
+                                >
+                                  <PenSquare className="h-4 w-4" />
+                                  <span>Write Article</span>
+                                </Link>
+                              </>
+                            )}
                           </motion.div>
                         )}
                       </AnimatePresence>
@@ -703,6 +750,19 @@ export default function Navbar({ onAdminMenuToggle, showAdminMenu }: NavbarProps
                       >
                         <User className="h-5 w-5" />
                         <span>My Profile</span>
+                      </Link>
+                    </motion.div>
+                    <motion.div
+                      whileHover={{ x: 5 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <Link
+                        to="/referrals"
+                        className="block w-full text-left px-4 py-3 text-gray-300 hover:text-white hover:bg-white/5 rounded-lg transition-all duration-300 font-medium flex items-center space-x-3"
+                        onClick={() => setIsOpen(false)}
+                      >
+                        <Gift className="h-5 w-5" />
+                        <span>Referrals</span>
                       </Link>
                     </motion.div>
                     <motion.button

@@ -26,6 +26,13 @@ import {
   updateTerm,
   deleteTerm,
 } from '../data/taxonomies.js';
+import {
+  getOverallAnalytics,
+  getArticlePerformanceComparison,
+  updateHotScores,
+  resetArticleViews,
+  resetAllArticleViews
+} from '../data/articleViews.js';
 
 const router = express.Router();
 
@@ -336,6 +343,70 @@ router.delete('/taxonomy-terms/:id', async (req, res) => {
     await deleteTerm(id);
     res.json({ message: 'Term deleted' });
   } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get article analytics for admin dashboard
+router.get('/analytics', async (req, res) => {
+  try {
+    const { timeRange } = req.query;
+    const analytics = await getOverallAnalytics(timeRange || '30d');
+    res.json(analytics);
+  } catch (error) {
+    console.error('Error fetching admin analytics:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Compare article performance
+router.post('/analytics/compare', async (req, res) => {
+  try {
+    const { articleIds } = req.body;
+    const { timeRange } = req.query;
+    
+    if (!Array.isArray(articleIds) || articleIds.length === 0) {
+      return res.status(400).json({ error: 'Article IDs array is required.' });
+    }
+
+    const comparison = await getArticlePerformanceComparison(articleIds, timeRange || '30d');
+    res.json(comparison);
+  } catch (error) {
+    console.error('Error comparing article performance:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update hot scores for all articles
+router.post('/analytics/update-hot-scores', async (req, res) => {
+  try {
+    await updateHotScores();
+    res.json({ success: true, message: 'Hot scores updated successfully' });
+  } catch (error) {
+    console.error('Error updating hot scores:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Reset all article views (must be BEFORE the :id route)
+router.delete('/articles/views/all', async (req, res) => {
+  try {
+    const result = await resetAllArticleViews();
+    res.json(result);
+  } catch (error) {
+    console.error('Error resetting all article views:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Reset views for a specific article
+router.delete('/articles/:id/views', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await resetArticleViews(id);
+    res.json(result);
+  } catch (error) {
+    console.error('Error resetting article views:', error);
     res.status(500).json({ error: error.message });
   }
 });

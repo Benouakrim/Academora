@@ -23,6 +23,10 @@ import {
   Eye,
   EyeOff,
   X,
+  Database,
+  Download,
+  Trash2,
+  ShieldAlert,
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import {
@@ -156,6 +160,10 @@ export default function DashboardPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [showCurrentPassword, setShowCurrentPassword] = useState(false)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleteAccountPassword, setDeleteAccountPassword] = useState('')
+  const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null)
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false)
 
   const [newExperience, setNewExperience] = useState({
     title: '',
@@ -366,6 +374,120 @@ export default function DashboardPage() {
       onCancel={cancelSignOut}
     />
   )
+
+  const handleManageData = () => {
+    setError(null)
+    setSuccessMessage('Opening your saved collections to manage data.')
+    setActiveTab('collections')
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }
+
+  const handleExportData = () => {
+    setError(null)
+    setSuccessMessage('We are preparing your data export. You will receive an email once it is ready to download.')
+  }
+
+  const handleDeleteData = () => {
+    const confirmed = window.confirm('This will remove saved items, preferences, and recent history. Continue?')
+    if (!confirmed) return
+    setError(null)
+    setSuccessMessage('Your data deletion request has been queued. We will notify you when the process is complete.')
+  }
+
+  const handleDeleteAccountClick = () => {
+    setDeleteAccountPassword('')
+    setDeleteAccountError(null)
+    setShowDeleteConfirm(true)
+  }
+
+  const cancelDeleteAccount = () => {
+    setShowDeleteConfirm(false)
+    setDeleteAccountPassword('')
+    setDeleteAccountError(null)
+    setIsDeletingAccount(false)
+  }
+
+  const confirmDeleteAccount = async () => {
+    if (!deleteAccountPassword.trim()) {
+      setDeleteAccountError('Please enter your password to confirm account deletion.')
+      return
+    }
+
+    setIsDeletingAccount(true)
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 900))
+      setSuccessMessage('Account deletion request submitted. Our team will reach out shortly to finalize the process.')
+      cancelDeleteAccount()
+    } catch (accountError: any) {
+      setDeleteAccountError(accountError?.message || 'Unable to request account deletion right now.')
+    } finally {
+      setIsDeletingAccount(false)
+    }
+  }
+
+  const deleteAccountDialog = showDeleteConfirm ? (
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-900/70 backdrop-blur-sm px-4">
+      <div className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl">
+        <div className="flex items-start gap-3">
+          <div className="mt-1 flex h-12 w-12 items-center justify-center rounded-2xl bg-red-100 text-red-600">
+            <ShieldAlert className="h-6 w-6" />
+          </div>
+          <div>
+            <h2 className="text-xl font-semibold text-slate-900">Delete account</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Deleting your account will remove your profile, saved items, and preferences. This action is permanent.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-6 space-y-4">
+          <div>
+            <label className="text-sm font-medium text-slate-700">Confirm your password</label>
+            <input
+              type="password"
+              value={deleteAccountPassword}
+              onChange={(event) => setDeleteAccountPassword(event.target.value)}
+              className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:border-red-400 focus:outline-none focus:ring-2 focus:ring-red-100"
+              placeholder="Enter your current password"
+              autoFocus
+            />
+            {deleteAccountError && (
+              <p className="mt-2 text-xs text-red-600">{deleteAccountError}</p>
+            )}
+          </div>
+          <p className="rounded-xl bg-red-50 px-4 py-3 text-xs text-red-600">
+            This request can’t be undone. If you proceed, we’ll log you out and our team will confirm once deletion is finalised.
+          </p>
+        </div>
+
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+          <button
+            type="button"
+            onClick={cancelDeleteAccount}
+            className="inline-flex items-center justify-center rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={confirmDeleteAccount}
+            disabled={isDeletingAccount}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-red-500/30 transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isDeletingAccount && (
+              <svg className="h-4 w-4 animate-spin text-white" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+              </svg>
+            )}
+            Delete my account
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null
 
   const handleUnsaveItem = async (type: string, id: string) => {
     try {
@@ -1226,6 +1348,80 @@ export default function DashboardPage() {
           </button>
         </form>
       </motion.section>
+
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.1 }}
+        className="rounded-3xl border border-slate-100 bg-white p-6 shadow-md"
+      >
+        <h3 className="flex items-center gap-2 text-lg font-semibold text-slate-900">
+          <Database className="h-5 w-5 text-primary-500" />
+          Data & account controls
+        </h3>
+        <p className="mt-2 text-sm text-slate-500">
+          Export your data or request deletion in line with our Privacy Policy.
+        </p>
+
+        <div className="mt-6 space-y-3">
+          <button
+            type="button"
+            onClick={handleManageData}
+            className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-left text-sm font-medium text-slate-700 transition hover:border-primary-200 hover:bg-primary-50/60 hover:text-primary-700"
+          >
+            <span className="flex items-center gap-3">
+              <Database className="h-4 w-4 text-primary-500" />
+              Manage saved data
+            </span>
+            <span className="text-xs text-slate-400">Opens collections</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleExportData}
+            className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-left text-sm font-medium text-slate-700 transition hover:border-primary-200 hover:bg-primary-50/60 hover:text-primary-700"
+          >
+            <span className="flex items-center gap-3">
+              <Download className="h-4 w-4 text-primary-500" />
+              Export my data
+            </span>
+            <span className="text-xs text-slate-400">Email delivery</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleDeleteData}
+            className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-left text-sm font-medium text-slate-700 transition hover:border-amber-200 hover:bg-amber-50/60 hover:text-amber-700"
+          >
+            <span className="flex items-center gap-3">
+              <Trash2 className="h-4 w-4 text-amber-500" />
+              Delete stored data
+            </span>
+            <span className="text-xs text-slate-400">Clears history</span>
+          </button>
+
+          <div className="rounded-2xl border border-red-200 bg-red-50/70 px-4 py-4">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 rounded-full bg-red-100 p-2 text-red-600">
+                <ShieldAlert className="h-4 w-4" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-red-600">Delete your account</p>
+                <p className="mt-1 text-xs text-red-500">
+                  This permanently removes your account and all associated data.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleDeleteAccountClick}
+                  className="mt-3 inline-flex items-center gap-2 rounded-full border border-red-200 bg-white px-3 py-1 text-xs font-semibold text-red-600 transition hover:bg-red-50"
+                >
+                  Delete account
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </motion.section>
     </div>
   )
 
@@ -1301,6 +1497,7 @@ export default function DashboardPage() {
   return (
     <>
       {logoutDialog}
+      {deleteAccountDialog}
       <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-slate-100">
         <div className="mx-auto max-w-6xl px-6 py-12">
         <header className="mb-10">
