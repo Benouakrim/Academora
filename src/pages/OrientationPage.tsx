@@ -4,6 +4,7 @@ import { adminAPI } from '../lib/api'
 import * as LucideIcons from 'lucide-react'
 import { motion } from 'framer-motion'
 import { Compass, Sparkles, ArrowRight, Brain, Scale } from 'lucide-react'
+import AnimatedBackground from '../components/AnimatedBackground'
 
 interface Category {
   id: string
@@ -50,33 +51,14 @@ export default function OrientationPage() {
   }
 
   return (
-    <div className="relative bg-black text-white min-h-screen py-20 overflow-hidden">
+    <div className="relative bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] min-h-screen py-20 overflow-hidden">
       {/* Animated background elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {[...Array(4)].map((_, i) => (
-          <motion.div
-            key={i}
-            className="absolute rounded-full mix-blend-screen"
-            style={{
-              left: `${10 + (i * 30)}%`,
-              top: `${15 + (i * 20)}%`,
-              width: `${200 + (i * 80)}px`,
-              height: `${200 + (i * 80)}px`,
-              background: `radial-gradient(circle, ${['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b'][i]} 0%, transparent 70%)`,
-            }}
-            animate={{
-              scale: [1, 1.2, 1],
-              opacity: [0.1, 0.3, 0.1],
-            }}
-            transition={{
-              duration: 6 + (i * 0.5),
-              repeat: Infinity,
-              ease: "easeInOut",
-              delay: i * 0.4
-            }}
-          />
-        ))}
-      </div>
+      <AnimatedBackground 
+  colors={['var(--chart-color-2)', 'var(--chart-color-1)', 'var(--chart-color-4)', 'var(--chart-color-5)']} 
+        orbCount={4}
+        orbSize={280}
+        duration={18}
+      />
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
@@ -130,7 +112,7 @@ export default function OrientationPage() {
             animate={{ opacity: 1, y: 0 }}
             className="text-center py-20"
           >
-            <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-12 border border-gray-700/50">
+            <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-12">
               <Compass className="w-16 h-16 text-gray-400 mx-auto mb-6" />
               <p className="text-xl text-gray-300 mb-4">No orientation categories found.</p>
               <p className="text-gray-500">Please add categories in the admin panel.</p>
@@ -139,7 +121,7 @@ export default function OrientationPage() {
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
             {/* Left Section: Academic Databases */}
-            <div className="bg-gradient-to-br from-blue-900/10 to-cyan-900/10 rounded-3xl p-8 border border-blue-800/20">
+            <div className="bg-gradient-to-br from-blue-900/10 to-cyan-900/10 rounded-3xl p-8">
               <motion.div
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -172,7 +154,7 @@ export default function OrientationPage() {
                     >
                       <Link
                         to={`/orientation/${category.slug}`}
-                        className="block bg-gradient-to-br from-gray-800/50 to-gray-900/50 backdrop-blur-sm rounded-2xl border border-gray-700/50 hover:border-blue-500/50 hover:shadow-2xl hover:shadow-blue-500/25 transition-all duration-300 p-6 h-44 flex flex-col"
+                        className="block bg-gradient-to-br from-gray-800/50 to-gray-900/50 backdrop-blur-sm rounded-2xl hover:shadow-2xl hover:shadow-blue-500/25 transition-all duration-300 p-6 h-44 flex flex-col"
                       >
                         <div className="flex items-center gap-3 mb-3">
                           <motion.div
@@ -207,7 +189,7 @@ export default function OrientationPage() {
             </div>
 
             {/* Right Section: Interactive Tools */}
-            <div className="bg-gradient-to-br from-purple-900/10 to-pink-900/10 rounded-3xl p-8 border border-purple-800/20">
+            <div className="bg-gradient-to-br from-purple-900/10 to-pink-900/10 rounded-3xl p-8">
               <motion.div
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -236,7 +218,7 @@ export default function OrientationPage() {
                 >
                   <Link
                     to="/matching-engine"
-                    className="block bg-gradient-to-br from-purple-800/50 to-pink-900/50 backdrop-blur-sm rounded-2xl border border-purple-600/50 hover:border-purple-400/50 hover:shadow-2xl hover:shadow-purple-500/25 transition-all duration-300 p-6 h-44 flex flex-col"
+                    className="block bg-gradient-to-br from-purple-800/50 to-pink-900/50 backdrop-blur-sm rounded-2xl hover:shadow-2xl hover:shadow-purple-500/25 transition-all duration-300 p-6 h-44 flex flex-col"
                   >
                     <div className="flex items-center gap-3 mb-3">
                       <motion.div
@@ -317,7 +299,7 @@ export default function OrientationPage() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="bg-gradient-to-br from-gray-800/50 to-gray-900/50 backdrop-blur-sm rounded-3xl border border-gray-700/50 p-12"
+          className="bg-gradient-to-br from-gray-800/50 to-gray-900/50 backdrop-blur-sm rounded-3xl p-12"
         >
           <div className="max-w-4xl mx-auto text-center">
             <div className="mb-8">

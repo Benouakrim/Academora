@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { getCurrentUser } from '../lib/api'
+import ProgressBar from '../components/ProgressBar'
 import LocalizedContentHub from '../components/LocalizedContentHub'
 import LocalizedContentEditor from '../components/LocalizedContentEditor'
 import { LocalizedContent, LanguageStats } from '../lib/services/localizedContentService'
@@ -277,12 +278,7 @@ export default function LocalizedContentPage() {
                         </div>
                       </div>
                       <div className="mt-2">
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div
-                            className="bg-green-500 h-2 rounded-full transition-all duration-300"
-                            style={{ width: `${percentage}%` }}
-                          />
-                        </div>
+                        <ProgressBar value={percentage} variant="success" />
                       </div>
                     </div>
                   )

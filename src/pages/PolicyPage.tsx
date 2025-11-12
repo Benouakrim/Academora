@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion'
 import SEO from '../components/SEO'
-import { Shield, Lock, Eye, Cookie, User, Database, Mail, Settings, ChevronRight } from 'lucide-react'
+import { Shield, Lock, Eye, Cookie, User, Database, Mail, Settings } from 'lucide-react'
 import { useState } from 'react'
 
 export default function PolicyPage() {
@@ -29,7 +29,7 @@ export default function PolicyPage() {
   }
 
   return (
-    <div className="relative bg-black text-white min-h-screen py-20 overflow-hidden">
+    <div className="relative bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] min-h-screen py-20 overflow-hidden">
       <SEO title="Privacy & Policy - AcademOra" description="Comprehensive privacy policy, cookie policy, terms of service and data protection information for AcademOra" />
       
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

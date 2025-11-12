@@ -62,7 +62,7 @@ export default function StaticPage() {
 
   // Render content without any default styling - let HTML/CSS override everything
   return (
-    <div style={{ margin: 0, padding: 0, minHeight: '100vh' }}>
+    <div className="m-0 p-0 min-h-screen">
       <div dangerouslySetInnerHTML={{ __html: pageContent }} />
     </div>
   );

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { referralsAPI } from '../lib/api';
 import { motion } from 'framer-motion';
 import {
   Copy,
@@ -17,11 +18,6 @@ import {
   Clock,
 } from 'lucide-react';
 
-interface ReferralCode {
-  code: string;
-  uses_count: number;
-  is_active: boolean;
-}
 
 interface ReferralStats {
   total_referrals: number;
@@ -51,7 +47,8 @@ const ReferralDashboard: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const [referralCode, setReferralCode] = useState<ReferralCode | null>(null);
+  // Store just the referral code string returned by backend (simpler than unused object shape)
+  const [referralCode, setReferralCode] = useState<string>('');
   const [stats, setStats] = useState<ReferralStats | null>(null);
   const [referrals, setReferrals] = useState<Referral[]>([]);
   const [rewards, setRewards] = useState<Reward[]>([]);
@@ -75,47 +72,28 @@ const ReferralDashboard: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      // Fetch referral code and stats
-      const codeResponse = await fetch('/api/referrals/my-code', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!codeResponse.ok) {
-        throw new Error('Failed to fetch referral code');
-      }
-
-      const codeData = await codeResponse.json();
-      setReferralCode(codeData.code);
+      // Use centralized API client (adds Authorization header)
+      const codeData = await referralsAPI.getMyCode();
+      setReferralCode(codeData.code || '');
       setStats(codeData.stats);
 
-      // Fetch referrals list
-      const referralsResponse = await fetch('/api/referrals/my-referrals', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const referralsData = await referralsAPI.getMyReferrals();
+      setReferrals(referralsData.referrals || []);
 
-      if (referralsResponse.ok) {
-        const referralsData = await referralsResponse.json();
-        setReferrals(referralsData.referrals || []);
-      }
-
-      // Fetch rewards
-      const rewardsResponse = await fetch('/api/referrals/my-rewards', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (rewardsResponse.ok) {
-        const rewardsData = await rewardsResponse.json();
-        setRewards(rewardsData.rewards || []);
-      }
-    } catch (err) {
+      const rewardsData = await referralsAPI.getMyRewards();
+      setRewards(rewardsData.rewards || []);
+    } catch (err: any) {
       console.error('Error fetching referral data:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load referral data');
+      const status = err?.status || err?.code || null;
+      if (status === 401) {
+        setError('Your session has expired. Please log in again.');
+      } else if (status === 403) {
+        setError('Access denied. Your account does not have permission to view referrals.');
+      } else if (err?.message) {
+        setError(err.message);
+      } else {
+        setError('Failed to load referral data');
+      }
     } finally {
       setLoading(false);
     }
@@ -128,9 +106,9 @@ const ReferralDashboard: React.FC = () => {
   };
 
   const getReferralUrl = () => {
-    if (!referralCode) return '';
-    const baseUrl = window.location.origin;
-    return `${baseUrl}/signup?ref=${referralCode.code}`;
+  if (!referralCode) return '';
+  const baseUrl = window.location.origin;
+  return `${baseUrl}/signup?ref=${referralCode}`;
   };
 
   const shareViaEmail = () => {
@@ -284,10 +262,10 @@ const ReferralDashboard: React.FC = () => {
             </label>
             <div className="flex items-center">
               <div className="flex-1 bg-gray-50 border border-gray-300 rounded-l-lg p-4 font-mono text-2xl font-bold text-blue-600">
-                {referralCode?.code}
+                {referralCode}
               </div>
               <button
-                onClick={() => copyToClipboard(referralCode?.code || '')}
+                onClick={() => copyToClipboard(referralCode || '')}
                 className="bg-blue-600 text-white px-6 py-4 rounded-r-lg hover:bg-blue-700 transition-colors flex items-center"
               >
                 {copied ? (

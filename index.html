@@ -7,6 +7,35 @@
     <title>AcademOra - Your Academic Companion</title>
   </head>
   <body>
+    <script>
+      // Pre-hydration theme preference application to prevent FOUC.
+      (function() {
+        try {
+          var raw = localStorage.getItem('ao_theme_pref');
+          if (raw) {
+            var pref = JSON.parse(raw);
+            var theme = (pref && (pref.theme === 'default' || pref.theme === 'verdant')) ? pref.theme : 'default';
+            var mode = (pref && (pref.mode === 'dark' || pref.mode === 'light')) ? pref.mode : 'dark';
+            document.body.classList.add('theme-' + theme);
+            document.body.classList.add('mode-' + mode);
+          } else {
+            // Baseline: default dark
+            document.body.classList.add('theme-default');
+            document.body.classList.add('mode-dark');
+          }
+          // Admin override if set (takes precedence over stored theme name, but not user mode toggle)
+          var adminTheme = localStorage.getItem('ao_admin_theme');
+          if (adminTheme && (adminTheme === 'default' || adminTheme === 'verdant')) {
+            // Remove any existing theme-* class then apply admin theme
+            document.body.classList.forEach(function(cls){ if (cls.indexOf('theme-') === 0) document.body.classList.remove(cls); });
+            document.body.classList.add('theme-' + adminTheme);
+          }
+        } catch(e) {
+          document.body.classList.add('theme-default');
+          document.body.classList.add('mode-dark');
+        }
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

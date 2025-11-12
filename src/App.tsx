@@ -49,7 +49,9 @@ import AboutPage from './pages/AboutPage'
 import ContactPage from './pages/ContactPage'
 import PolicyPage from './pages/PolicyPage'
 import CareersPage from './pages/CareersPage'
+import ExplorePage from './pages/ExplorePage'
 import { AccessControlProvider } from './context/AccessControlContext'
+import { ThemeProvider } from './context/ThemeContext'
 const FeatureUsagePage = lazy(() => import('./pages/admin/FeatureUsagePage'))
 const AdminMediaPage = lazy(() => import('./pages/admin/AdminMediaPage'))
 const MyArticles = lazy(() => import('./pages/MyArticles'))
@@ -57,9 +59,11 @@ const UserArticleEditor = lazy(() => import('./pages/UserArticleEditor'))
 const AdminReviewPortal = lazy(() => import('./pages/AdminReviewPortal'))
 const ReferralDashboard = lazy(() => import('./pages/ReferralDashboard'))
 const AdminReferrals = lazy(() => import('./pages/admin/AdminReferrals'))
+const ThemeSettingsPage = lazy(() => import('./pages/admin/ThemeSettingsPage'))
 
 function App() {
   return (
+    <ThemeProvider>
     <AccessControlProvider>
     <Router>
       <Layout>
@@ -106,8 +110,10 @@ function App() {
           <Route path={track("/admin/localized-content")} element={<LocalizedContentPage />} />
           <Route path={track("/admin/analytics")} element={<AdvancedAnalyticsPage />} />
           <Route path={track("/admin/media")} element={<AdminMediaPage />} />
+          <Route path={track("/admin/theme")} element={<ThemeSettingsPage />} />
           <Route path={track("/about")} element={<AboutPage />} />
           <Route path={track("/contact")} element={<ContactPage />} />
+          <Route path={track("/explore")} element={<ExplorePage />} />
           <Route path={track("/policy")} element={<PolicyPage />} />
           <Route path={track("/careers")} element={<CareersPage />} />
           <Route path={track("/pricing")} element={<PricingPage />} />
@@ -133,6 +139,7 @@ function App() {
       </Layout>
     </Router>
     </AccessControlProvider>
+    </ThemeProvider>
   )
 }
 

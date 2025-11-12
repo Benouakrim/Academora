@@ -37,6 +37,7 @@ export const parseUserToken = async (req, res, next) => {
 
 // Middleware to REQUIRE a valid user.
 export const requireUser = (req, res, next) => {
+  console.log('[AUTH] requireUser check, req.user:', req.user ? `${req.user.id} (${req.user.email})` : 'NULL');
   if (!req.user) {
     return res.status(401).json({ error: 'Authentication required.' });
   }

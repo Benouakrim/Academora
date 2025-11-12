@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import SEO from '../components/SEO'
+import AnimatedBackground from '../components/AnimatedBackground'
 import { Phone, Mail, MapPin, Send } from 'lucide-react'
 
 export default function ContactPage() {
@@ -26,34 +27,16 @@ export default function ContactPage() {
   }
 
   return (
-    <div className="relative bg-black text-white min-h-screen py-20 overflow-hidden">
+    <div className="relative bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] min-h-screen py-20 overflow-hidden">
       <SEO title="Contact Us - AcademOra" description="Get in touch with the AcademOra team for support, partnerships, or general inquiries" />
       
       {/* Animated background elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {[...Array(3)].map((_, i) => (
-          <motion.div
-            key={i}
-            className="absolute rounded-full mix-blend-screen"
-            style={{
-              left: `${20 + (i * 30)}%`,
-              top: `${30 + (i * 20)}%`,
-              width: `${200 + (i * 150)}px`,
-              height: `${200 + (i * 150)}px`,
-              background: `radial-gradient(circle, ${['#3b82f6', '#8b5cf6', '#ec4899'][i]}20 0%, transparent 70%)`,
-            }}
-            animate={{
-              scale: [1, 1.3, 1],
-              opacity: [0.3, 0.5, 0.3],
-            }}
-            transition={{
-              duration: 5 + i,
-              repeat: Infinity,
-              ease: "easeInOut"
-            }}
-          />
-        ))}
-      </div>
+      <AnimatedBackground 
+        colors={['var(--chart-color-1)', 'var(--chart-color-2)', 'var(--chart-color-3)']} 
+        orbCount={3}
+        orbSize={350}
+        duration={16}
+      />
 
       <div className="relative z-10 max-w-6xl mx-auto px-4">
         <motion.div

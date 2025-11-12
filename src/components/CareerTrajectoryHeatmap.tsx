@@ -96,17 +96,17 @@ export default function CareerTrajectoryHeatmap({ universities, userPreferences 
       const inLowVisaHighSalary = point.x < quadrants.avgX && point.y >= quadrants.avgY
       const inHighVisaLowSalary = point.x >= quadrants.avgX && point.y < quadrants.avgY
 
-      if (inHighVisaHighSalary) return '#10b981' // Green - Best quadrant
-      if (inLowVisaHighSalary) return '#3b82f6' // Blue - High salary, low visa
-      if (inHighVisaLowSalary) return '#f59e0b' // Orange - High visa, low salary
-      return '#ef4444' // Red - Challenging quadrant
+  if (inHighVisaHighSalary) return 'var(--heatmap-best)' // Best quadrant
+  if (inLowVisaHighSalary) return 'var(--heatmap-good)' // High salary, low visa
+  if (inHighVisaLowSalary) return 'var(--heatmap-caution)' // High visa, low salary
+  return 'var(--heatmap-risk)' // Challenging quadrant
     }
     
     // Score-based coloring
-    if (point.score >= 80) return '#10b981'
-    if (point.score >= 60) return '#3b82f6'
-    if (point.score >= 40) return '#f59e0b'
-    return '#ef4444'
+  if (point.score >= 80) return 'var(--heatmap-best)'
+  if (point.score >= 60) return 'var(--heatmap-good)'
+  if (point.score >= 40) return 'var(--heatmap-caution)'
+  return 'var(--heatmap-risk)'
   }
 
   if (dataPoints.length === 0) {

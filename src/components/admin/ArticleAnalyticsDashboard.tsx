@@ -50,7 +50,15 @@ interface AnalyticsData {
   }>;
 }
 
-const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+// Chart color palette sourced from CSS variables (theme overridable)
+const COLORS = [
+  'var(--chart-color-1)',
+  'var(--chart-color-4)',
+  'var(--chart-color-5)',
+  'var(--chart-color-6)',
+  'var(--chart-color-2)',
+  'var(--chart-color-3)'
+];
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
@@ -325,9 +333,9 @@ export default function ArticleAnalyticsDashboard() {
               <Line 
                 type="monotone" 
                 dataKey="views" 
-                stroke="#3b82f6" 
+                stroke="var(--chart-color-1)" 
                 strokeWidth={2}
-                dot={{ fill: '#3b82f6', r: 4 }}
+                dot={{ fill: 'var(--chart-color-1)', r: 4 }}
               />
             </LineChart>
           </ResponsiveContainer>

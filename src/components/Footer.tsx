@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { GraduationCap, Mail, Github, Twitter, Linkedin, Sparkles, Heart } from 'lucide-react'
+import ThemeModeToggle from './ThemeModeToggle'
 import { useTranslation } from 'react-i18next'
 import { motion } from 'framer-motion'
 
@@ -73,7 +74,9 @@ export default function Footer() {
                 { to: "/blog", label: "Read" },
                 { to: "/orientation", label: "Explore" },
                 { to: "/matching-engine", label: t('common.matcher') },
-                { to: "/about", label: "About Us" }
+                { to: "/about", label: "About Us" },
+                { to: "/careers", label: "Careers" },
+                { to: "/pricing", label: "Pricing" }
               ].map((link, index) => (
                 <motion.li
                   key={index}
@@ -107,9 +110,9 @@ export default function Footer() {
             <ul className="space-y-3">
               {[
                 { to: "/contact", label: "Contact Us" },
-                { href: "#", label: "Help Center" },
-                { href: "#", label: "Privacy Policy" },
-                { href: "#", label: "Terms of Service" }
+                { to: "/policy", label: "Privacy Policy" },
+                { to: "/docs", label: "Documentation" },
+                { to: "/compare", label: "Compare Universities" }
               ].map((link, index) => (
                 <motion.li
                   key={index}
@@ -118,23 +121,13 @@ export default function Footer() {
                   viewport={{ once: true }}
                   transition={{ duration: 0.3, delay: 0.3 + (index * 0.05) }}
                 >
-                  {link.to ? (
-                    <Link
-                      to={link.to}
-                      className="text-gray-400 hover:text-blue-400 transition-all duration-300 text-sm flex items-center gap-2 group"
-                    >
-                      <Sparkles className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                      {link.label}
-                    </Link>
-                  ) : (
-                    <a
-                      href={link.href}
-                      className="text-gray-400 hover:text-blue-400 transition-all duration-300 text-sm flex items-center gap-2 group"
-                    >
-                      <Sparkles className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                      {link.label}
-                    </a>
-                  )}
+                  <Link
+                    to={link.to}
+                    className="text-gray-400 hover:text-blue-400 transition-all duration-300 text-sm flex items-center gap-2 group"
+                  >
+                    <Sparkles className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    {link.label}
+                  </Link>
                 </motion.li>
               ))}
             </ul>
@@ -203,6 +196,8 @@ export default function Footer() {
               </motion.div>
               for students worldwide
             </motion.div>
+            {/* Public theme mode toggle in footer */}
+            <ThemeModeToggle className="ml-0 md:ml-4" />
           </div>
         </motion.div>
       </div>

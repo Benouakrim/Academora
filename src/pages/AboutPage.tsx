@@ -1,37 +1,19 @@
 import { motion } from 'framer-motion'
 import SEO from '../components/SEO'
+import AnimatedBackground from '../components/AnimatedBackground'
 import { Info, Users, Target, Award } from 'lucide-react'
 
 export default function AboutPage() {
   return (
-    <div className="relative bg-black text-white min-h-screen py-20 overflow-hidden">
+    <div className="relative bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] min-h-screen py-20 overflow-hidden">
       <SEO title="About Us - AcademOra" description="Learn about AcademOra's mission to transform academic guidance and career planning" />
       
       {/* Animated background elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {[...Array(4)].map((_, i) => (
-          <motion.div
-            key={i}
-            className="absolute rounded-full mix-blend-screen"
-            style={{
-              left: `${15 + (i * 25)}%`,
-              top: `${20 + (i * 15)}%`,
-              width: `${150 + (i * 100)}px`,
-              height: `${150 + (i * 100)}px`,
-              background: `radial-gradient(circle, ${['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b'][i]}20 0%, transparent 70%)`,
-            }}
-            animate={{
-              scale: [1, 1.2, 1],
-              opacity: [0.3, 0.6, 0.3],
-            }}
-            transition={{
-              duration: 4 + i,
-              repeat: Infinity,
-              ease: "easeInOut"
-            }}
-          />
-        ))}
-      </div>
+      <AnimatedBackground 
+        colors={['var(--chart-color-1)', 'var(--chart-color-2)', 'var(--chart-color-3)', 'var(--chart-color-5)']} 
+        orbCount={4}
+        duration={14}
+      />
 
       <div className="relative z-10 max-w-6xl mx-auto px-4">
         <motion.div

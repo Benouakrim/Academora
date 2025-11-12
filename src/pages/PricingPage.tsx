@@ -326,11 +326,11 @@ export default function PricingPage() {
                   className={`relative ${plan.highlighted ? 'lg:scale-105 z-10' : ''}`}
                 >
                   {/* Card */}
-                  <div className={`h-full bg-gradient-to-br from-gray-900/90 to-black/90 backdrop-blur-xl rounded-3xl border ${
+                  <div className={`relative h-full bg-gradient-to-br from-gray-900/90 to-black/90 backdrop-blur-xl rounded-3xl ${
                     plan.highlighted 
-                      ? 'border-purple-500/50 shadow-2xl shadow-purple-500/20' 
-                      : 'border-gray-800/50'
-                  } overflow-hidden transition-all duration-300 hover:border-purple-500/50 hover:shadow-xl hover:shadow-purple-500/10`}>
+                      ? 'shadow-2xl shadow-purple-500/20 ring-2 ring-purple-500/50' 
+                      : ''
+                  } overflow-hidden transition-all duration-300 hover:shadow-xl hover:shadow-purple-500/10`}>
                     
                     {/* Badge */}
                     {plan.badge && !plan.comingSoon && (
@@ -510,7 +510,7 @@ export default function PricingPage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.4, delay: index * 0.05 }}
-                className="bg-gradient-to-br from-gray-900/50 to-black/50 backdrop-blur-xl rounded-2xl border border-gray-800/50 overflow-hidden hover:border-purple-500/30 transition-all duration-300"
+                className="relative bg-gradient-to-br from-gray-900/50 to-black/50 backdrop-blur-xl rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/10"
               >
                 <motion.button
                   onClick={() => setActiveFaq(activeFaq === index ? null : index)}

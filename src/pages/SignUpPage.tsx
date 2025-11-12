@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Building, GraduationCap, Layers, Users, Mail, FileText, AlertCircle, CheckCircle2, Eye, EyeOff } from 'lucide-react'
 import { authAPI, setAuthToken, setCurrentUser } from '../lib/api'
+import ProgressBar from '../components/ProgressBar'
 
 type AccountTypeOption = {
   id: string
@@ -331,7 +332,7 @@ export default function SignUpPage() {
     setError(null)
 
     try {
-      const extraSignupData = { 
+      const extraSignupData: Record<string, any> = { 
         accountType: selectedAccountType.id,
         emailPreferences,
         acceptedTerms: true,
@@ -815,18 +816,17 @@ export default function SignUpPage() {
                     </button>
                   </div>
                   <div>
-                    <div className="h-2 w-full rounded-full bg-gray-200">
-                      <div
-                        className={`h-2 rounded-full transition-all duration-300 ${
-                          passwordStrength.label === 'Strong'
-                            ? 'bg-emerald-500'
-                            : passwordStrength.label === 'Moderate'
-                            ? 'bg-amber-500'
-                            : 'bg-red-500'
-                        }`}
-                        style={{ width: `${Math.max(8, passwordStrength.percent)}%` }}
-                      />
-                    </div>
+                    <ProgressBar
+                      value={Math.max(8, passwordStrength.percent)}
+                      variant={
+                        passwordStrength.label === 'Strong'
+                          ? 'success'
+                          : passwordStrength.label === 'Moderate'
+                          ? 'warning'
+                          : 'danger'
+                      }
+                      animated={false}
+                    />
                     <p className="mt-1 text-xs font-medium text-gray-600">
                       Strength: <span className="capitalize">{passwordStrength.label.toLowerCase()}</span>
                     </p>

@@ -1,0 +1,248 @@
+/*
+  Theme & Mode CSS Variable Overrides
+  - Scope: body.theme-<name>.mode-<mode>
+  - Only colors & fonts. No spacing, layout, radii, shadows, animations.
+  - Baseline (:root) represents current default dark values from tokens.
+*/
+
+/* 1) Default Dark Mode (ORIGINAL STYLE)
+   Aim: Black background with purple/blue accents - the classic look
+*/
+body.theme-default.mode-dark {
+  /* Backgrounds & text - Original black theme */
+  --color-bg-primary: #000000;
+  --color-bg-secondary: #111827;
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #d1d5db;
+  --color-text-tertiary: #9ca3af;
+  --color-border-primary: rgba(255, 255, 255, 0.1);
+  --color-border-secondary: rgba(255, 255, 255, 0.2);
+  --color-border-tertiary: rgba(255, 255, 255, 0.3);
+
+  /* Interactive elements */
+  --color-interactive-bg: rgba(255, 255, 255, 0.05);
+  --color-interactive-bg-hover: rgba(255, 255, 255, 0.1);
+  --color-interactive-border: rgba(255, 255, 255, 0.1);
+  --color-link: #d1d5db;
+  --color-link-hover: #ffffff;
+
+  /* Primary colors - Blue/Purple focus */
+  --color-accent-primary: #3b82f6;
+  --color-accent-secondary: #a855f7;
+
+  /* Chart palette - Original vibrant colors */
+  --chart-color-1: #3b82f6;
+  --chart-color-2: #a855f7;
+  --chart-color-3: #ec4899;
+  --chart-color-4: #10b981;
+  --chart-color-5: #f59e0b;
+  --chart-color-6: #ef4444;
+  --chart-grid: rgba(255, 255, 255, 0.1);
+  --chart-axis: rgba(255, 255, 255, 0.2);
+  --chart-tick: rgba(255, 255, 255, 0.4);
+
+  /* Sliders */
+  --slider-track: rgba(255, 255, 255, 0.1);
+  --slider-progress-academic: #a855f7;
+  --slider-progress-budget: #10b981;
+
+  /* Ambient decorative colors (orbs etc.) */
+  --ambient-color-1: #a855f7;
+  --ambient-color-2: #3b82f6;
+  --ambient-color-3: #10b981;
+  --ambient-color-4: #f59e0b;
+
+  /* Heatmap & status */
+  --heatmap-best: #10b981;
+  --heatmap-good: #3b82f6;
+  --heatmap-caution: #f59e0b;
+  --heatmap-risk: #ef4444;
+
+  /* Badges */
+  --badge-positive-bg: #10b981;
+  --badge-negative-bg: #ef4444;
+  --badge-neutral-bg: #6b7280;
+}
+
+/* 2) Default Light Mode
+   Aim: Bright, readable backgrounds with dark text
+*/
+body.theme-default.mode-light {
+  /* Backgrounds & text */
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #f9fafb;
+  --color-text-primary: #111827;
+  --color-text-secondary: #4b5563;
+  --color-text-tertiary: #6b7280;
+  --color-border-primary: #e5e7eb;
+  --color-border-secondary: #d1d5db;
+  --color-border-tertiary: #9ca3af;
+
+  /* Interactive elements */
+  --color-interactive-bg: rgba(0, 0, 0, 0.05);
+  --color-interactive-bg-hover: rgba(0, 0, 0, 0.1);
+  --color-interactive-border: rgba(0, 0, 0, 0.1);
+  --color-link: #4b5563;
+  --color-link-hover: #111827;
+
+  /* Primary colors - Darker for contrast on light bg */
+  --color-accent-primary: #2563eb;
+  --color-accent-secondary: #9333ea;
+
+  /* Chart palette */
+  --chart-color-1: #3b82f6;
+  --chart-color-2: #a855f7;
+  --chart-color-3: #ec4899;
+  --chart-color-4: #10b981;
+  --chart-color-5: #f97316;
+  --chart-color-6: #ef4444;
+  --chart-grid: #e5e7eb;
+  --chart-axis: #9ca3af;
+  --chart-tick: #6b7280;
+
+  /* Sliders */
+  --slider-track: #e5e7eb;
+  --slider-progress-academic: #9333ea;
+  --slider-progress-budget: #059669;
+
+  /* Ambient decorative colors (softer for light mode) */
+  --ambient-color-1: rgba(168, 85, 247, 0.3);
+  --ambient-color-2: rgba(59, 130, 246, 0.3);
+  --ambient-color-3: rgba(16, 185, 129, 0.3);
+  --ambient-color-4: rgba(249, 115, 22, 0.3);
+
+  /* Heatmap & status */
+  --heatmap-best: #059669;
+  --heatmap-good: #2563eb;
+  --heatmap-caution: #ea580c;
+  --heatmap-risk: #dc2626;
+
+  /* Badges */
+  --badge-positive-bg: #10b981;
+  --badge-negative-bg: #ef4444;
+  --badge-neutral-bg: #6b7280;
+}
+
+/* 2) Verdant Dark Mode
+   Aim: Deep green-tinted dark surfaces, green primary. Keep semantics recognizable.
+*/
+body.theme-verdant.mode-dark {
+  /* Primary remapped to emerald scale */
+  --color-primary-50: var(--color-emerald-50);
+  --color-primary-100: var(--color-emerald-100);
+  --color-primary-200: var(--color-emerald-200);
+  --color-primary-300: var(--color-emerald-300);
+  --color-primary-400: var(--color-emerald-400);
+  --color-primary-500: var(--color-emerald-500);
+  --color-primary-600: var(--color-emerald-600);
+  --color-primary-700: var(--color-emerald-700);
+  --color-primary-800: var(--color-emerald-800);
+  --color-primary-900: var(--color-emerald-900);
+
+  /* Backgrounds: near-black with green nuance via text/accents */
+  --color-bg-primary: var(--color-gray-900);
+  --color-bg-secondary: var(--color-gray-800);
+  --color-text-primary: var(--color-white);
+  --color-text-secondary: var(--color-gray-300);
+  --color-text-tertiary: var(--color-gray-400);
+
+  /* Gradients: primary → emerald */
+  --gradient-primary: linear-gradient(135deg, var(--color-emerald-500), var(--color-green-600));
+
+  /* Chart palette (green emphasis) */
+  --chart-color-1: var(--color-emerald-500);
+  --chart-color-2: var(--color-emerald-600);
+  --chart-color-3: var(--color-green-500);
+  --chart-color-4: var(--color-blue-500);
+  --chart-color-5: var(--color-orange-500);
+  --chart-color-6: var(--color-error-500);
+  --chart-grid: var(--color-gray-700);
+  --chart-axis: var(--color-gray-600);
+  --chart-tick: var(--color-gray-400);
+
+  /* Sliders */
+  --slider-track: var(--color-gray-700);
+  --slider-progress-academic: var(--color-emerald-500);
+  --slider-progress-budget: var(--color-emerald-600);
+
+  /* Ambient decorative colors */
+  --ambient-color-1: var(--color-emerald-500);
+  --ambient-color-2: var(--color-emerald-600);
+  --ambient-color-3: var(--color-green-500);
+  --ambient-color-4: var(--color-blue-500);
+
+  /* Heatmap & status */
+  --heatmap-best: var(--color-emerald-500);
+  --heatmap-good: var(--color-blue-500);
+  --heatmap-caution: var(--color-orange-500);
+  --heatmap-risk: var(--color-error-500);
+
+  /* Badges */
+  --badge-positive-bg: var(--color-emerald-500);
+  --badge-negative-bg: var(--color-error-500);
+  --badge-neutral-bg: var(--color-gray-600);
+}
+
+/* 3) Verdant Light Mode
+   Aim: Airy neutrals with green primary accents.
+*/
+body.theme-verdant.mode-light {
+  /* Primary remapped to emerald scale */
+  --color-primary-50: var(--color-emerald-50);
+  --color-primary-100: var(--color-emerald-100);
+  --color-primary-200: var(--color-emerald-200);
+  --color-primary-300: var(--color-emerald-300);
+  --color-primary-400: var(--color-emerald-400);
+  --color-primary-500: var(--color-emerald-500);
+  --color-primary-600: var(--color-emerald-600);
+  --color-primary-700: var(--color-emerald-700);
+  --color-primary-800: var(--color-emerald-800);
+  --color-primary-900: var(--color-emerald-900);
+
+  /* Light surfaces & dark text */
+  --color-bg-primary: var(--color-neutral-50);
+  --color-bg-secondary: var(--color-white);
+  --color-text-primary: var(--color-neutral-900);
+  --color-text-secondary: var(--color-neutral-700);
+  --color-text-tertiary: var(--color-neutral-500);
+
+  --gradient-primary: linear-gradient(135deg, var(--color-emerald-400), var(--color-green-600));
+
+  /* Chart palette (green emphasis) */
+  --chart-color-1: var(--color-emerald-500);
+  --chart-color-2: var(--color-emerald-600);
+  --chart-color-3: var(--color-green-500);
+  --chart-color-4: var(--color-blue-500);
+  --chart-color-5: var(--color-orange-500);
+  --chart-color-6: var(--color-error-500);
+  --chart-grid: var(--color-gray-200);
+  --chart-axis: var(--color-gray-400);
+  --chart-tick: var(--color-gray-600);
+
+  /* Sliders */
+  --slider-track: var(--color-neutral-200);
+  --slider-progress-academic: var(--color-emerald-500);
+  --slider-progress-budget: var(--color-emerald-600);
+
+  /* Ambient decorative colors */
+  --ambient-color-1: var(--color-emerald-500);
+  --ambient-color-2: var(--color-emerald-600);
+  --ambient-color-3: var(--color-green-500);
+  --ambient-color-4: var(--color-blue-500);
+
+  /* Heatmap & status */
+  --heatmap-best: var(--color-emerald-500);
+  --heatmap-good: var(--color-blue-500);
+  --heatmap-caution: var(--color-orange-500);
+  --heatmap-risk: var(--color-error-500);
+
+  /* Badges */
+  --badge-positive-bg: var(--color-emerald-500);
+  --badge-negative-bg: var(--color-error-500);
+  --badge-neutral-bg: var(--color-gray-500);
+}
+
+/* Optional: theme-specific font family tweak (kept same for now to avoid external font loads) */
+/* body.theme-verdant.mode-dark, body.theme-verdant.mode-light { */
+/*   --font-primary: var(--font-family-sans); */
+/* } */

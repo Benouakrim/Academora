@@ -542,6 +542,22 @@ export const accessAPI = {
   },
 };
 
+// Referrals API
+export const referralsAPI = {
+  async getMyCode() {
+    return fetchAPI('/referrals/my-code');
+  },
+  async getMyReferrals() {
+    return fetchAPI('/referrals/my-referrals');
+  },
+  async getMyRewards() {
+    return fetchAPI('/referrals/my-rewards');
+  },
+  async validate(code: string) {
+    return fetchAPI(`/referrals/validate/${encodeURIComponent(code)}`);
+  },
+};
+
 // User Preferences API
 export const userPreferencesAPI = {
   async getPreferences() {

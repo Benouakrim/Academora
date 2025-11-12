@@ -5,25 +5,21 @@ import {
   Users,
   Building2,
   FileText,
-  MousePointer,
   Clock,
   Activity,
   Download,
   Filter,
-  Calendar,
   BarChart3,
-  PieChart,
-  LineChart,
   Eye,
   Target,
   Globe,
   BookOpen,
-  Settings,
   RefreshCw,
   AlertCircle,
   Star,
   Shield
 } from 'lucide-react'
+import ProgressBar from './ProgressBar'
 import {
   advancedAnalyticsAPI,
   AnalyticsOverview,
@@ -34,7 +30,6 @@ import {
   ContentAnalytics,
   AnalyticsFilters,
   DATE_RANGES,
-  METRIC_TYPES,
   EXPORT_FORMATS
 } from '../lib/services/analyticsService'
 
@@ -50,16 +45,16 @@ export default function AdvancedAnalyticsDashboard({ className = '' }: AdvancedA
     dateRange: '30d'
   })
   const [showFilters, setShowFilters] = useState(false)
-  const [realTimeData, setRealTimeData] = useState<any>(null)
+  const [, setRealTimeData] = useState<any>(null)
   const [autoRefresh, setAutoRefresh] = useState(false)
 
   // Analytics data states
   const [overview, setOverview] = useState<AnalyticsOverview | null>(null)
   const [userAnalytics, setUserAnalytics] = useState<UserAnalytics | null>(null)
   const [universityAnalytics, setUniversityAnalytics] = useState<UniversityAnalytics | null>(null)
-  const [engagementAnalytics, setEngagementAnalytics] = useState<EngagementAnalytics | null>(null)
-  const [conversionAnalytics, setConversionAnalytics] = useState<ConversionAnalytics | null>(null)
-  const [contentAnalytics, setContentAnalytics] = useState<ContentAnalytics | null>(null)
+  const [, setEngagementAnalytics] = useState<EngagementAnalytics | null>(null)
+  const [, setConversionAnalytics] = useState<ConversionAnalytics | null>(null)
+  const [, setContentAnalytics] = useState<ContentAnalytics | null>(null)
 
   useEffect(() => {
     fetchAnalyticsData()
@@ -81,7 +76,7 @@ export default function AdvancedAnalyticsDashboard({ className = '' }: AdvancedA
 
       switch (activeTab) {
         case 'overview':
-          const overviewData = await advancedAnalyticsAPI.getOverview(filters)
+          const overviewData = await advancedAnalyticsAPI.overview(filters)
           setOverview(overviewData)
           break
         case 'users':
@@ -222,11 +217,8 @@ export default function AdvancedAnalyticsDashboard({ className = '' }: AdvancedA
                 </div>
                 <div className="flex items-center gap-4">
                   <span className="text-gray-300">{country.count.toLocaleString()}</span>
-                  <div className="w-24 bg-gray-700 rounded-full h-2">
-                    <div
-                      className="bg-blue-500 h-2 rounded-full"
-                      style={{ width: `${country.percentage}%` }}
-                    />
+                  <div className="w-24">
+                    <ProgressBar value={country.percentage} variant="info" />
                   </div>
                   <span className="text-gray-400 text-sm">{country.percentage}%</span>
                 </div>

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2025-11-10T14:29:50.259Z",
+  "generatedAt": "2025-11-12T12:22:19.409Z",
   "projectRoot": "C:\\Users\\ayper\\Desktop\\Projects Ayoub\\Coding",
   "files": {
     "pages": [],
@@ -50,12 +50,6 @@
         "username": "benouakrim-private-09dfb27d",
         "email": "benouakrim.private@gmail.com",
         "full_name": null
-      },
-      {
-        "id": "b9e79e4f-6b45-4753-af07-ac8a8a7752e8",
-        "username": "admin-b9e79e4f",
-        "email": "admin@academora.com",
-        "full_name": "Ayoub benouakrim"
       },
       {
         "id": "c497c0fb-6ea4-4277-b430-dbb97dd5046d",
@@ -110,6 +104,12 @@
         "username": "ay-tester2001",
         "email": "ay.tester2001@gmail.com",
         "full_name": null
+      },
+      {
+        "id": "b9e79e4f-6b45-4753-af07-ac8a8a7752e8",
+        "username": "admin-b9e79e4f",
+        "email": "admin@academora.com",
+        "full_name": "Ayoub benouakrim"
       }
     ],
     "articles": [
@@ -135,18 +135,18 @@
         "_content": "<h2>Introduction</h2>\n      <p>The world of academia is vast and diverse, with countless fields of study to explore. This guide will help you understand the major academic disciplines and how to choose the right one for you.</p>\n      \n      <h2>STEM Fields (Science, Technology, Engineering, Mathematics)</h2>\n      <p>STEM fields focus on scientific inquiry, technological innovation, and quantitative analysis. Popular fields include:</p>\n      <ul>\n        <li><strong>Computer Science:</strong> Software development, AI, cybersecurity</li>\n        <li><strong>Engineering:</strong> Mechanical, electrical, civil, biomedical</li>\n        <li><strong>Natural Sciences:</strong> Biology, chemistry, physics, environmental science</li>\n        <li><strong>Mathematics:</strong> Applied math, statistics, data science</li>\n      </ul>\n      \n      <h2>Social Sciences</h2>\n      <p>Social sciences study human behavior and society. Key fields include:</p>\n      <ul>\n        <li><strong>Psychology:</strong> Human behavior and mental processes</li>\n        <li><strong>Sociology:</strong> Social structures and relationships</li>\n        <li><strong>Economics:</strong> Market systems and financial behavior</li>\n        <li><strong>Political Science:</strong> Government and political systems</li>\n      </ul>\n      \n      <h2>Humanities</h2>\n      <p>Humanities explore human culture, history, and expression. Major areas include:</p>\n      <ul>\n        <li><strong>Literature:</strong> Literary analysis and creative writing</li>\n        <li><strong>History:</strong> Historical research and interpretation</li>\n        <li><strong>Philosophy:</strong> Critical thinking and ethical reasoning</li>\n        <li><strong>Languages:</strong> Linguistic study and cultural immersion</li>\n      </ul>\n      \n      <h2>Arts and Creative Fields</h2>\n      <p>Creative fields emphasize artistic expression and innovation:</p>\n      <ul>\n        <li><strong>Visual Arts:</strong> Painting, sculpture, digital arts</li>\n        <li><strong>Performing Arts:</strong> Theater, music, dance</li>\n        <li><strong>Design:</strong> Graphic design, fashion, architecture</li>\n      </ul>\n      \n      <h2>Business and Professional Fields</h2>\n      <p>Business programs prepare students for careers in commerce and management:</p>\n      <ul>\n        <li><strong>Business Administration:</strong> Management, strategy, entrepreneurship</li>\n        <li><strong>Finance:</strong> Banking, investment, financial planning</li>\n        <li><strong>Marketing:</strong> Branding, advertising, market research</li>\n      </ul>\n      \n      <h2>How to Choose Your Field</h2>\n      <p>Consider these factors when selecting an academic field:</p>\n      <ul>\n        <li>Your interests and passions</li>\n        <li>Career opportunities and job market</li>\n        <li>Academic strengths and skills</li>\n        <li>Long-term career goals</li>\n        <li>Work-life balance preferences</li>\n      </ul>\n      \n      <h2>Conclusion</h2>\n      <p>Each academic field offers unique perspectives and career paths. Take time to explore your interests, talk to professionals in different fields, and consider how each discipline aligns with your goals and values.</p>"
       },
       {
-        "id": "7eba02db-71e0-4f6e-8705-4536c8c8fcc4",
-        "slug": "how-to-bazoo",
-        "title": "How to bazoonga",
-        "published": true,
-        "_content": "<p>Chlamanquonnach</p><ul><li><p>ece cce</p></li></ul><pre><code>cece</code></pre><p></p>"
-      },
-      {
         "id": "e4528411-c099-4d7f-b004-df18b010b178",
         "slug": "university-application-deadlines-timeline",
         "title": "University Application Deadlines: Complete Timeline Guide",
         "published": true,
         "_content": "<h2>Understanding Application Deadlines</h2><p>Missing an application deadline can mean waiting another year. Here's a comprehensive timeline to keep you on track.</p><h2>Key Deadlines</h2><p>Early Decision: November 1, Regular Decision: January 1-15, UCAS (UK): January 15</p><h2>Tips for Success</h2><p>Create a master calendar with all deadlines, set reminders 2 weeks before each deadline, and submit applications early.</p>"
+      },
+      {
+        "id": "f7880352-e2d8-4019-aea5-5a334fb1105b",
+        "slug": "top-10-engineering-fields-career-prospects",
+        "title": "Top 10 Engineering Fields with Best Career Prospects",
+        "published": true,
+        "_content": "<h2>Introduction</h2><p>Engineering is one of the most versatile and rewarding career paths. Here are the top 10 engineering fields with excellent career prospects.</p><h2>1. Software Engineering</h2><p>With digital transformation accelerating, software engineers are in high demand.</p><h2>2. Artificial Intelligence & Machine Learning</h2><p>AI engineers design and develop intelligent systems.</p><h2>Conclusion</h2><p>Each engineering field offers unique opportunities. Choose based on your interests and career goals.</p>"
       },
       {
         "id": "9d314713-8bee-4f06-8a7a-65db09e147b0",
@@ -161,13 +161,6 @@
         "title": "Scholarships for International Students: Where to Find Funding",
         "published": true,
         "_content": "<h2>Introduction</h2><p>Finding scholarships can significantly reduce the financial burden of studying abroad. Here's where to look for funding opportunities.</p><h2>Types of Scholarships</h2><p>Merit-based, need-based, country-specific, and subject-specific scholarships are available.</p><h2>Where to Find</h2><p>Check university websites, government programs like Fulbright and Chevening, and private organizations.</p><h2>Application Tips</h2><p>Start searching early, apply to multiple scholarships, tailor each application, and write compelling essays.</p>"
-      },
-      {
-        "id": "f7880352-e2d8-4019-aea5-5a334fb1105b",
-        "slug": "top-10-engineering-fields-career-prospects",
-        "title": "Top 10 Engineering Fields with Best Career Prospects",
-        "published": true,
-        "_content": "<h2>Introduction</h2><p>Engineering is one of the most versatile and rewarding career paths. Here are the top 10 engineering fields with excellent career prospects.</p><h2>1. Software Engineering</h2><p>With digital transformation accelerating, software engineers are in high demand.</p><h2>2. Artificial Intelligence & Machine Learning</h2><p>AI engineers design and develop intelligent systems.</p><h2>Conclusion</h2><p>Each engineering field offers unique opportunities. Choose based on your interests and career goals.</p>"
       },
       {
         "id": "56827aea-267b-4453-a852-c7094936a698",
@@ -318,7 +311,6 @@
       "/u/emma",
       "/u/ay-perso2001-04e241ed",
       "/u/benouakrim-private-09dfb27d",
-      "/u/admin-b9e79e4f",
       "/u/you",
       "/u/you-hoty",
       "/u/higl",
@@ -327,17 +319,17 @@
       "/u/a",
       "/u/ayoub-private",
       "/u/you-5lld",
-      "/u/ay-tester2001"
+      "/u/ay-tester2001",
+      "/u/admin-b9e79e4f"
     ],
     "articlePaths": [
       "/blog/how-to-choose-right-university",
       "/blog/university-admissions-step-by-step",
       "/blog/understanding-academic-fields-guide",
-      "/blog/how-to-bazoo",
       "/blog/university-application-deadlines-timeline",
+      "/blog/top-10-engineering-fields-career-prospects",
       "/blog/study-abroad-complete-guide",
       "/blog/scholarships-international-students-funding",
-      "/blog/top-10-engineering-fields-career-prospects",
       "/blog/10-tips-international-students"
     ],
     "universityPaths": [
@@ -386,14 +378,14 @@
         "hasContent": true
       },
       {
-        "slug": "how-to-bazoo",
-        "title": "How to bazoonga",
+        "slug": "university-application-deadlines-timeline",
+        "title": "University Application Deadlines: Complete Timeline Guide",
         "published": true,
         "hasContent": true
       },
       {
-        "slug": "university-application-deadlines-timeline",
-        "title": "University Application Deadlines: Complete Timeline Guide",
+        "slug": "top-10-engineering-fields-career-prospects",
+        "title": "Top 10 Engineering Fields with Best Career Prospects",
         "published": true,
         "hasContent": true
       },
@@ -406,12 +398,6 @@
       {
         "slug": "scholarships-international-students-funding",
         "title": "Scholarships for International Students: Where to Find Funding",
-        "published": true,
-        "hasContent": true
-      },
-      {
-        "slug": "top-10-engineering-fields-career-prospects",
-        "title": "Top 10 Engineering Fields with Best Career Prospects",
         "published": true,
         "hasContent": true
       },

@@ -1,16 +1,22 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
-import { Menu, X, User, LogOut, Sparkles, Settings, Bell, ChevronDown, BookOpen, FileText, Info, Phone, Shield, Heart, PenSquare, FileEdit, Gift } from 'lucide-react'
+import { 
+  Menu, X, User, LogOut, Sparkles, Settings, Bell, ChevronDown, BookOpen, FileText, 
+  Info, Phone, Shield, Heart, PenSquare, FileEdit, Gift, LayoutDashboard, 
+  GitCompare, Users, Building2, BarChart3, Sliders, UserCog
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { authAPI, getCurrentUser, staticPagesAPI, notificationsAPI } from '../lib/api'
 import LanguageSwitcher from './LanguageSwitcher'
 import { motion, AnimatePresence } from 'framer-motion'
 import LogoutConfirmDialog from './LogoutConfirmDialog'
+import ThemeModeToggle from './ThemeModeToggle'
 
 interface User {
   id: string
   email: string
   role?: string
+  avatar_url?: string
 }
 
 interface NavbarProps {
@@ -31,6 +37,7 @@ interface StaticPage {
 const PERMANENT_FEATURES = [
   { path: '/blog', label: 'Read' },
   { path: '/orientation', label: 'Explore' },
+  { path: '/explore', label: 'Features' },
   { path: '/discover', label: 'Discover' },
   { path: '/pricing', label: 'Pricing' },
 ];
@@ -40,6 +47,10 @@ export default function Navbar({ onAdminMenuToggle, showAdminMenu }: NavbarProps
   const [isOpen, setIsOpen] = useState(false)
   const [isReadDropdownOpen, setIsReadDropdownOpen] = useState(false)
   const [isDiscoverDropdownOpen, setIsDiscoverDropdownOpen] = useState(false)
+  const [isDashboardDropdownOpen, setIsDashboardDropdownOpen] = useState(false)
+  const [isAdminDropdownOpen, setIsAdminDropdownOpen] = useState(false)
+  const [isMobileDashboardOpen, setIsMobileDashboardOpen] = useState(false)
+  const [isMobileAdminOpen, setIsMobileAdminOpen] = useState(false)
   const [user, setUser] = useState<User | null>(null)
   const [navbarPages, setNavbarPages] = useState<StaticPage[]>([])
   const [unreadCount, setUnreadCount] = useState<number>(0)
@@ -136,10 +147,10 @@ export default function Navbar({ onAdminMenuToggle, showAdminMenu }: NavbarProps
       initial={{ y: -100 }}
       animate={{ y: 0 }}
       transition={{ duration: 0.5 }}
-      className="bg-black/80 backdrop-blur-md shadow-2xl sticky top-0 z-50 border-b border-gray-800/50"
+      className="bg-[var(--color-bg-primary)]/80 backdrop-blur-md shadow-2xl sticky top-0 z-50"
     >
       {/* Animated background glow */}
-      <div className="absolute inset-0 bg-gradient-to-r from-purple-900/10 via-black to-blue-900/10" />
+      <div className="absolute inset-0 bg-gradient-to-r from-[var(--color-accent-secondary)]/10 via-[var(--color-bg-primary)] to-[var(--color-accent-primary)]/10" />
       
       <div className="relative w-full px-2 sm:px-3 lg:px-4">
         <div className="flex justify-between items-center h-16 gap-2">
@@ -219,11 +230,11 @@ export default function Navbar({ onAdminMenuToggle, showAdminMenu }: NavbarProps
                           animate={{ opacity: 1, y: 0, scale: 1 }}
                           exit={{ opacity: 0, y: -10, scale: 0.95 }}
                           transition={{ duration: 0.2 }}
-                          className="absolute top-full left-0 mt-2 w-48 bg-gray-900/95 backdrop-blur-md rounded-lg border border-gray-700/50 shadow-2xl"
+                          className="absolute top-full left-0 mt-2 w-48 bg-slate-900 backdrop-blur-md rounded-lg border border-slate-700 shadow-2xl"
                         >
                           <Link
                             to="/blog"
-                            className="flex items-center gap-3 px-4 py-3 text-gray-300 hover:text-white hover:bg-white/5 transition-colors rounded-t-lg"
+                            className="flex items-center gap-3 px-4 py-3 text-slate-200 hover:text-white hover:bg-purple-600/30 transition-colors rounded-t-lg font-semibold"
                             onClick={() => setIsReadDropdownOpen(false)}
                           >
                             <BookOpen className="h-4 w-4" />
@@ -231,7 +242,7 @@ export default function Navbar({ onAdminMenuToggle, showAdminMenu }: NavbarProps
                           </Link>
                           <Link
                             to="/blog?view=docs"
-                            className="flex items-center gap-3 px-4 py-3 text-gray-300 hover:text-white hover:bg-white/5 transition-colors"
+                            className="flex items-center gap-3 px-4 py-3 text-slate-200 hover:text-white hover:bg-purple-600/30 transition-colors font-semibold"
                             onClick={() => setIsReadDropdownOpen(false)}
                           >
                             <FileText className="h-4 w-4" />
@@ -239,10 +250,10 @@ export default function Navbar({ onAdminMenuToggle, showAdminMenu }: NavbarProps
                           </Link>
                           {user && (
                             <>
-                              <div className="border-t border-gray-700/50 my-1"></div>
+                              <div className="border-t border-slate-700 my-1"></div>
                               <Link
                                 to="/my-articles"
-                                className="flex items-center gap-3 px-4 py-3 text-gray-300 hover:text-white hover:bg-white/5 transition-colors"
+                                className="flex items-center gap-3 px-4 py-3 text-slate-200 hover:text-white hover:bg-purple-600/30 transition-colors font-semibold"
                                 onClick={() => setIsReadDropdownOpen(false)}
                               >
                                 <FileEdit className="h-4 w-4" />
@@ -250,7 +261,7 @@ export default function Navbar({ onAdminMenuToggle, showAdminMenu }: NavbarProps
                               </Link>
                               <Link
                                 to="/write-article"
-                                className="flex items-center gap-3 px-4 py-3 text-gray-300 hover:text-white hover:bg-white/5 transition-colors rounded-b-lg"
+                                className="flex items-center gap-3 px-4 py-3 text-slate-200 hover:text-white hover:bg-purple-600/30 transition-colors rounded-b-lg font-semibold"
                                 onClick={() => setIsReadDropdownOpen(false)}
                               >
                                 <PenSquare className="h-4 w-4" />
@@ -287,11 +298,11 @@ export default function Navbar({ onAdminMenuToggle, showAdminMenu }: NavbarProps
                           animate={{ opacity: 1, y: 0, scale: 1 }}
                           exit={{ opacity: 0, y: -10, scale: 0.95 }}
                           transition={{ duration: 0.2 }}
-                          className="absolute top-full left-0 mt-2 w-56 bg-gray-900/95 backdrop-blur-md rounded-lg border border-gray-700/50 shadow-2xl"
+                          className="absolute top-full left-0 mt-2 w-56 bg-slate-900 backdrop-blur-md rounded-lg border border-slate-700 shadow-2xl"
                         >
                           <Link
                             to="/about"
-                            className="flex items-center gap-3 px-4 py-3 text-gray-300 hover:text-white hover:bg-white/5 transition-colors rounded-t-lg"
+                            className="flex items-center gap-3 px-4 py-3 text-slate-200 hover:text-white hover:bg-purple-600/30 transition-colors rounded-t-lg font-semibold"
                             onClick={() => setIsDiscoverDropdownOpen(false)}
                           >
                             <Info className="h-4 w-4" />
@@ -299,7 +310,7 @@ export default function Navbar({ onAdminMenuToggle, showAdminMenu }: NavbarProps
                           </Link>
                           <Link
                             to="/contact"
-                            className="flex items-center gap-3 px-4 py-3 text-gray-300 hover:text-white hover:bg-white/5 transition-colors"
+                            className="flex items-center gap-3 px-4 py-3 text-slate-200 hover:text-white hover:bg-purple-600/30 transition-colors font-semibold"
                             onClick={() => setIsDiscoverDropdownOpen(false)}
                           >
                             <Phone className="h-4 w-4" />
@@ -307,7 +318,7 @@ export default function Navbar({ onAdminMenuToggle, showAdminMenu }: NavbarProps
                           </Link>
                           <Link
                             to="/policy"
-                            className="flex items-center gap-3 px-4 py-3 text-gray-300 hover:text-white hover:bg-white/5 transition-colors"
+                            className="flex items-center gap-3 px-4 py-3 text-slate-200 hover:text-white hover:bg-purple-600/30 transition-colors font-semibold"
                             onClick={() => setIsDiscoverDropdownOpen(false)}
                           >
                             <Shield className="h-4 w-4" />
@@ -315,7 +326,7 @@ export default function Navbar({ onAdminMenuToggle, showAdminMenu }: NavbarProps
                           </Link>
                           <Link
                             to="/careers"
-                            className="flex items-center gap-3 px-4 py-3 text-gray-300 hover:text-white hover:bg-white/5 transition-colors rounded-b-lg"
+                            className="flex items-center gap-3 px-4 py-3 text-slate-200 hover:text-white hover:bg-purple-600/30 transition-colors rounded-b-lg font-semibold"
                             onClick={() => setIsDiscoverDropdownOpen(false)}
                           >
                             <Heart className="h-4 w-4" />
@@ -367,6 +378,8 @@ export default function Navbar({ onAdminMenuToggle, showAdminMenu }: NavbarProps
 
           {/* Right side: User Actions */}
           <div className="hidden md:flex items-center space-x-3 flex-shrink-0 relative">
+            {/* Theme mode toggle (public) */}
+            <ThemeModeToggle />
             {user && (
               <div className="relative">
                 <motion.button
@@ -447,29 +460,162 @@ export default function Navbar({ onAdminMenuToggle, showAdminMenu }: NavbarProps
             )}
             
             {user && (
-              <motion.div
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+              <div
+                className="relative"
+                onMouseEnter={() => setIsDashboardDropdownOpen(true)}
+                onMouseLeave={() => setIsDashboardDropdownOpen(false)}
               >
-                <Link
-                  to="/dashboard"
-                  className="relative flex items-center justify-center w-10 h-10 rounded-full bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-all duration-300 group"
-                  title="My Profile"
+                <button
+                  className="flex items-center gap-2 px-4 py-2 text-gray-300 hover:text-white transition-colors duration-300 group"
                 >
                   {user?.avatar_url ? (
                     <img
                       src={user.avatar_url}
                       alt="Profile"
-                      className="w-full h-full rounded-full object-cover"
+                      className="w-8 h-8 rounded-full object-cover border-2 border-white/10 group-hover:border-purple-400/50 transition-all"
                       onError={(e) => {
                         (e.target as HTMLImageElement).style.display = 'none'
                       }}
                     />
                   ) : (
-                    <User className="h-5 w-5 text-gray-400 group-hover:text-purple-400 transition-colors" />
+                    <LayoutDashboard className="h-5 w-5" />
                   )}
-                </Link>
-              </motion.div>
+                  <span className="text-sm font-medium">Dashboard</span>
+                  <ChevronDown className={`h-4 w-4 transition-transform duration-300 ${isDashboardDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+                <AnimatePresence>
+                  {isDashboardDropdownOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 10 }}
+                      transition={{ duration: 0.2 }}
+                      className="absolute top-full right-0 mt-2 w-56 bg-slate-900 backdrop-blur-xl rounded-2xl border border-slate-700 shadow-2xl overflow-hidden z-50"
+                    >
+                      <div className="py-2">
+                        <Link
+                          to="/dashboard"
+                          className="flex items-center gap-3 px-4 py-3 text-slate-200 hover:text-white hover:bg-purple-600/30 transition-all duration-200"
+                          onClick={() => setIsDashboardDropdownOpen(false)}
+                        >
+                          <User className="h-4 w-4" />
+                          <span className="text-sm font-semibold">Profile & Settings</span>
+                        </Link>
+                        <Link
+                          to="/matching-engine"
+                          className="flex items-center gap-3 px-4 py-3 text-slate-200 hover:text-white hover:bg-purple-600/30 transition-all duration-200"
+                          onClick={() => setIsDashboardDropdownOpen(false)}
+                        >
+                          <Sparkles className="h-4 w-4" />
+                          <span className="text-sm font-semibold">Find Match</span>
+                        </Link>
+                        <Link
+                          to="/compare"
+                          className="flex items-center gap-3 px-4 py-3 text-slate-200 hover:text-white hover:bg-purple-600/30 transition-all duration-200"
+                          onClick={() => setIsDashboardDropdownOpen(false)}
+                        >
+                          <GitCompare className="h-4 w-4" />
+                          <span className="text-sm font-semibold">Compare Universities</span>
+                        </Link>
+                        <Link
+                          to="/referrals"
+                          className="flex items-center gap-3 px-4 py-3 text-slate-200 hover:text-white hover:bg-purple-600/30 transition-all duration-200"
+                          onClick={() => setIsDashboardDropdownOpen(false)}
+                        >
+                          <Gift className="h-4 w-4" />
+                          <span className="text-sm font-semibold">Referrals</span>
+                        </Link>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
+
+            {user?.role === 'admin' && (
+              <div
+                className="relative"
+                onMouseEnter={() => setIsAdminDropdownOpen(true)}
+                onMouseLeave={() => setIsAdminDropdownOpen(false)}
+              >
+                <button
+                  className="flex items-center gap-2 px-4 py-2 text-gray-300 hover:text-white transition-colors duration-300 group"
+                >
+                  <UserCog className="h-5 w-5" />
+                  <span className="text-sm font-medium">Admin</span>
+                  <ChevronDown className={`h-4 w-4 transition-transform duration-300 ${isAdminDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+                <AnimatePresence>
+                  {isAdminDropdownOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 10 }}
+                      transition={{ duration: 0.2 }}
+                      className="absolute top-full right-0 mt-2 w-56 bg-slate-900 backdrop-blur-xl rounded-2xl border border-slate-700 shadow-2xl overflow-hidden z-50"
+                    >
+                      <div className="py-2">
+                        <Link
+                          to="/admin"
+                          className="flex items-center gap-3 px-4 py-3 text-slate-200 hover:text-white hover:bg-purple-600/30 transition-all duration-200"
+                          onClick={() => setIsAdminDropdownOpen(false)}
+                        >
+                          <Sliders className="h-4 w-4" />
+                          <span className="text-sm font-semibold">Dashboard</span>
+                        </Link>
+                        <Link
+                          to="/admin/users"
+                          className="flex items-center gap-3 px-4 py-3 text-slate-200 hover:text-white hover:bg-purple-600/30 transition-all duration-200"
+                          onClick={() => setIsAdminDropdownOpen(false)}
+                        >
+                          <Users className="h-4 w-4" />
+                          <span className="text-sm font-semibold">Users</span>
+                        </Link>
+                        <Link
+                          to="/admin/universities"
+                          className="flex items-center gap-3 px-4 py-3 text-slate-200 hover:text-white hover:bg-purple-600/30 transition-all duration-200"
+                          onClick={() => setIsAdminDropdownOpen(false)}
+                        >
+                          <Building2 className="h-4 w-4" />
+                          <span className="text-sm font-semibold">Universities</span>
+                        </Link>
+                        <Link
+                          to="/admin/articles"
+                          className="flex items-center gap-3 px-4 py-3 text-slate-200 hover:text-white hover:bg-purple-600/30 transition-all duration-200"
+                          onClick={() => setIsAdminDropdownOpen(false)}
+                        >
+                          <BookOpen className="h-4 w-4" />
+                          <span className="text-sm font-semibold">Articles</span>
+                        </Link>
+                        <Link
+                          to="/admin/analytics"
+                          className="flex items-center gap-3 px-4 py-3 text-slate-200 hover:text-white hover:bg-purple-600/30 transition-all duration-200"
+                          onClick={() => setIsAdminDropdownOpen(false)}
+                        >
+                          <BarChart3 className="h-4 w-4" />
+                          <span className="text-sm font-semibold">Analytics</span>
+                        </Link>
+                        <Link
+                          to="/admin/pages"
+                          className="flex items-center gap-3 px-4 py-3 text-slate-200 hover:text-white hover:bg-purple-600/30 transition-all duration-200"
+                          onClick={() => setIsAdminDropdownOpen(false)}
+                        >
+                          <FileText className="h-4 w-4" />
+                          <span className="text-sm font-semibold">Pages</span>
+                        </Link>
+                        <Link
+                          to="/admin/media"
+                          className="flex items-center gap-3 px-4 py-3 text-slate-200 hover:text-white hover:bg-purple-600/30 transition-all duration-200"
+                          onClick={() => setIsAdminDropdownOpen(false)}
+                        >
+                          <Settings className="h-4 w-4" />
+                          <span className="text-sm font-semibold">Media</span>
+                        </Link>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             )}
 
             {user ? (
@@ -550,7 +696,7 @@ export default function Navbar({ onAdminMenuToggle, showAdminMenu }: NavbarProps
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.3 }}
-            className="md:hidden border-t border-gray-800/50 overflow-hidden bg-black/80 backdrop-blur-md"
+            className="md:hidden overflow-hidden bg-[var(--color-bg-primary)]/80 backdrop-blur-md"
           >
             <div className="px-4 pt-4 pb-3 space-y-2">
               {/* Permanent Features */}
@@ -739,19 +885,154 @@ export default function Navbar({ onAdminMenuToggle, showAdminMenu }: NavbarProps
                 {/* User Actions */}
                 {user ? (
                   <>
+                    {/* Dashboard Menu */}
                     <motion.div
                       whileHover={{ x: 5 }}
                       transition={{ duration: 0.2 }}
                     >
-                      <Link
-                        to="/dashboard"
-                        className="block w-full text-left px-4 py-3 text-gray-300 hover:text-white hover:bg-white/5 rounded-lg transition-all duration-300 font-medium flex items-center space-x-3"
-                        onClick={() => setIsOpen(false)}
+                      <button
+                        onClick={() => setIsMobileDashboardOpen(!isMobileDashboardOpen)}
+                        className="block w-full text-left px-4 py-3 text-gray-300 hover:text-white hover:bg-white/5 rounded-lg transition-all duration-300 font-medium flex items-center justify-between"
                       >
-                        <User className="h-5 w-5" />
-                        <span>My Profile</span>
-                      </Link>
+                        <div className="flex items-center space-x-3">
+                          <LayoutDashboard className="h-5 w-5" />
+                          <span>Dashboard</span>
+                        </div>
+                        <ChevronDown className={`h-4 w-4 transition-transform duration-300 ${isMobileDashboardOpen ? 'rotate-180' : ''}`} />
+                      </button>
+                      <AnimatePresence>
+                        {isMobileDashboardOpen && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="overflow-hidden bg-white/5 rounded-lg ml-4 mt-1"
+                          >
+                            <Link
+                              to="/dashboard"
+                              className="block px-4 py-2 text-sm text-slate-200 hover:text-white hover:bg-purple-600/30 transition-all flex items-center space-x-3 rounded"
+                              onClick={() => setIsOpen(false)}
+                            >
+                              <User className="h-4 w-4" />
+                              <span className="font-semibold">Profile & Settings</span>
+                            </Link>
+                            <Link
+                              to="/matching-engine"
+                              className="block px-4 py-2 text-sm text-slate-200 hover:text-white hover:bg-purple-600/30 transition-all flex items-center space-x-3 rounded"
+                              onClick={() => setIsOpen(false)}
+                            >
+                              <Sparkles className="h-4 w-4" />
+                              <span className="font-semibold">Find Match</span>
+                            </Link>
+                            <Link
+                              to="/compare"
+                              className="block px-4 py-2 text-sm text-slate-200 hover:text-white hover:bg-purple-600/30 transition-all flex items-center space-x-3 rounded"
+                              onClick={() => setIsOpen(false)}
+                            >
+                              <GitCompare className="h-4 w-4" />
+                              <span className="font-semibold">Compare Universities</span>
+                            </Link>
+                            <Link
+                              to="/referrals"
+                              className="block px-4 py-2 text-sm text-slate-200 hover:text-white hover:bg-purple-600/30 transition-all flex items-center space-x-3 rounded"
+                              onClick={() => setIsOpen(false)}
+                            >
+                              <Gift className="h-4 w-4" />
+                              <span className="font-semibold">Referrals</span>
+                            </Link>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </motion.div>
+                    
+                    {/* Admin Menu */}
+                    {user?.role === 'admin' && (
+                      <motion.div
+                        whileHover={{ x: 5 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <button
+                          onClick={() => setIsMobileAdminOpen(!isMobileAdminOpen)}
+                          className="block w-full text-left px-4 py-3 text-gray-300 hover:text-white hover:bg-white/5 rounded-lg transition-all duration-300 font-medium flex items-center justify-between"
+                        >
+                          <div className="flex items-center space-x-3">
+                            <UserCog className="h-5 w-5" />
+                            <span>Admin</span>
+                          </div>
+                          <ChevronDown className={`h-4 w-4 transition-transform duration-300 ${isMobileAdminOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                        <AnimatePresence>
+                          {isMobileAdminOpen && (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: 'auto', opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.2 }}
+                              className="overflow-hidden bg-white/5 rounded-lg ml-4 mt-1"
+                            >
+                              <Link
+                                to="/admin"
+                                className="block px-4 py-2 text-sm text-slate-200 hover:text-white hover:bg-purple-600/30 transition-all flex items-center space-x-3 rounded"
+                                onClick={() => setIsOpen(false)}
+                              >
+                                <Sliders className="h-4 w-4" />
+                                <span className="font-semibold">Dashboard</span>
+                              </Link>
+                              <Link
+                                to="/admin/users"
+                                className="block px-4 py-2 text-sm text-slate-200 hover:text-white hover:bg-purple-600/30 transition-all flex items-center space-x-3 rounded"
+                                onClick={() => setIsOpen(false)}
+                              >
+                                <Users className="h-4 w-4" />
+                                <span className="font-semibold">Users</span>
+                              </Link>
+                              <Link
+                                to="/admin/universities"
+                                className="block px-4 py-2 text-sm text-slate-200 hover:text-white hover:bg-purple-600/30 transition-all flex items-center space-x-3 rounded"
+                                onClick={() => setIsOpen(false)}
+                              >
+                                <Building2 className="h-4 w-4" />
+                                <span className="font-semibold">Universities</span>
+                              </Link>
+                              <Link
+                                to="/admin/articles"
+                                className="block px-4 py-2 text-sm text-slate-200 hover:text-white hover:bg-purple-600/30 transition-all flex items-center space-x-3 rounded"
+                                onClick={() => setIsOpen(false)}
+                              >
+                                <BookOpen className="h-4 w-4" />
+                                <span className="font-semibold">Articles</span>
+                              </Link>
+                              <Link
+                                to="/admin/analytics"
+                                className="block px-4 py-2 text-sm text-slate-200 hover:text-white hover:bg-purple-600/30 transition-all flex items-center space-x-3 rounded"
+                                onClick={() => setIsOpen(false)}
+                              >
+                                <BarChart3 className="h-4 w-4" />
+                                <span className="font-semibold">Analytics</span>
+                              </Link>
+                              <Link
+                                to="/admin/pages"
+                                className="block px-4 py-2 text-sm text-slate-200 hover:text-white hover:bg-purple-600/30 transition-all flex items-center space-x-3 rounded"
+                                onClick={() => setIsOpen(false)}
+                              >
+                                <FileText className="h-4 w-4" />
+                                <span className="font-semibold">Pages</span>
+                              </Link>
+                              <Link
+                                to="/admin/media"
+                                className="block px-4 py-2 text-sm text-slate-200 hover:text-white hover:bg-purple-600/30 transition-all flex items-center space-x-3 rounded"
+                                onClick={() => setIsOpen(false)}
+                              >
+                                <Settings className="h-4 w-4" />
+                                <span className="font-semibold">Media</span>
+                              </Link>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </motion.div>
+                    )}
+                    
                     <motion.div
                       whileHover={{ x: 5 }}
                       transition={{ duration: 0.2 }}

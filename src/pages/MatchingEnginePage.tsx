@@ -226,7 +226,7 @@ export default function MatchingEnginePage() {
               onChange={handleCriteriaChange}
               className="w-full h-3 bg-gray-700/50 rounded-lg appearance-none cursor-pointer"
               style={{
-                background: `linear-gradient(to right, #8b5cf6 0%, #8b5cf6 ${((criteria.minGpa - 2.0) / 2.0) * 100}%, #374151 ${((criteria.minGpa - 2.0) / 2.0) * 100}%, #374151 100%)`
+                background: `linear-gradient(to right, var(--slider-progress-academic) 0%, var(--slider-progress-academic) ${((criteria.minGpa - 2.0) / 2.0) * 100}%, var(--slider-track) ${((criteria.minGpa - 2.0) / 2.0) * 100}%, var(--slider-track) 100%)`
               }}
             />
             <motion.div
@@ -265,7 +265,7 @@ export default function MatchingEnginePage() {
               onChange={handleCriteriaChange}
               className="w-full h-3 bg-gray-700/50 rounded-lg appearance-none cursor-pointer"
               style={{
-                background: `linear-gradient(to right, #10b981 0%, #10b981 ${((criteria.maxBudget - 1000) / 79000) * 100}%, #374151 ${((criteria.maxBudget - 1000) / 79000) * 100}%, #374151 100%)`
+                background: `linear-gradient(to right, var(--slider-progress-budget) 0%, var(--slider-progress-budget) ${((criteria.maxBudget - 1000) / 79000) * 100}%, var(--slider-track) ${((criteria.maxBudget - 1000) / 79000) * 100}%, var(--slider-track) 100%)`
               }}
             />
             <motion.div
@@ -312,7 +312,7 @@ export default function MatchingEnginePage() {
   const progressPercent = (currentStep / 4) * 100;
 
   return (
-    <div className="relative bg-black text-white min-h-screen py-20 overflow-hidden">
+    <div className="relative bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] min-h-screen py-20 overflow-hidden">
       {/* Animated background elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {[...Array(4)].map((_, i) => (
@@ -324,7 +324,7 @@ export default function MatchingEnginePage() {
               top: `${10 + (i * 25)}%`,
               width: `${180 + (i * 90)}px`,
               height: `${180 + (i * 90)}px`,
-              background: `radial-gradient(circle, ${['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b'][i]} 0%, transparent 70%)`,
+              background: `radial-gradient(circle, ${['var(--ambient-color-1)', 'var(--ambient-color-2)', 'var(--ambient-color-3)', 'var(--ambient-color-4)'][i]} 0%, transparent 70%)`,
             }}
             animate={{
               scale: [1, 1.15, 1],

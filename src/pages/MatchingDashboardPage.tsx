@@ -585,7 +585,7 @@ useEffect(() => {
                 </button>
                 {isLoading && (
                   <div className="w-full bg-gray-200 rounded-full h-2.5 mt-4">
-                    <div className="bg-blue-600 h-2.5 rounded-full animate-pulse" style={{ width: '100%' }} />
+                    <div className="bg-blue-600 h-2.5 rounded-full animate-pulse w-full" />
                   </div>
                 )}
               </div>

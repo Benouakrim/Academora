@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { Calendar, User, ArrowLeft, Edit, Trash2, Flame, Clock, Lock, Star, TrendingUp } from 'lucide-react'
-import { adminAPI, blogAPI } from '../lib/api'
+import { adminAPI } from '../lib/api'
 import { BlogService } from '../lib/services/blogService'
 import { getCurrentUser } from '../lib/api'
 import MarkdownPreview from '@uiw/react-markdown-preview'
@@ -279,61 +279,6 @@ export default function ArticlePage() {
     }
   }
 
-  const ArticleGrid = ({ articles, title, icon: Icon, colorClass }: { 
-    articles: Article[], 
-    title: string, 
-    icon: any, 
-    colorClass: string 
-  }) => (
-    <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-      <div className={`bg-gradient-to-r ${colorClass} px-6 py-4`}>
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
-            <Icon className="h-5 w-5 text-white" />
-          </div>
-          <h3 className="text-lg font-bold text-white">{title}</h3>
-        </div>
-      </div>
-      <div className="p-6">
-        {articles.length === 0 ? (
-          <p className="text-sm text-gray-500 text-center py-8">No articles yet</p>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {articles.map((art) => (
-              <Link
-                key={art.id}
-                to={`/blog/${art.slug}`}
-                className="group hover:scale-[1.02] transition-all duration-200"
-              >
-                <div className="bg-gray-50 rounded-xl shadow-md hover:shadow-lg overflow-hidden border border-gray-100 h-full">
-                  {art.featured_image && (
-                    <div className="w-full h-40 overflow-hidden bg-gray-200">
-                      <img
-                        src={art.featured_image}
-                        alt={art.title}
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                      />
-                    </div>
-                  )}
-                  <div className="p-4">
-                    <h4 className="text-sm font-bold text-gray-900 group-hover:text-blue-600 line-clamp-2 mb-2 transition-colors">
-                      {art.title}
-                    </h4>
-                    <p className="text-xs text-gray-600 line-clamp-2 mb-3">{art.excerpt}</p>
-                    <div className="flex items-center gap-2 text-xs text-gray-400">
-                      <Calendar className="h-3 w-3" />
-                      <span>{formatDate(art.created_at)}</span>
-                    </div>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  )
-
   const handleEditArticle = () => {
     if (article) {
       navigate(`/admin/articles/edit/${article.id}`)
@@ -573,7 +518,7 @@ export default function ArticlePage() {
               source={article.content} 
               rehypePlugins={[rehypeRaw]} 
               remarkPlugins={[remarkGfm]}
-              style={{ background: 'transparent' }}
+              className="bg-transparent"
               wrapperElement={{
                 "data-color-mode": "light"
               }}

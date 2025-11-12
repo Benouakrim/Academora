@@ -8,7 +8,8 @@ import {
   BookOpen, Scale, BarChart3, Share2, ChevronLeft
 } from 'lucide-react'
 import FeatureModal from '../components/FeatureModal'
-import { videosAPI } from '../lib/api'
+import AnimatedBackground from '../components/AnimatedBackground'
+import { videosAPI, getCurrentUser } from '../lib/api'
 
 type ShowcaseVideo = {
   id: string
@@ -18,6 +19,7 @@ type ShowcaseVideo = {
   embed_code?: string | null
   thumbnail_url?: string | null
   position?: number | null
+  is_active?: boolean | null
 }
 
 const fallbackShowcaseVideos: ShowcaseVideo[] = [
@@ -54,6 +56,8 @@ const fallbackShowcaseVideos: ShowcaseVideo[] = [
 ]
 
 export default function HomePage() {
+  const user = getCurrentUser()
+  const isAdmin = user?.role === 'admin'
   const [currentStep, setCurrentStep] = useState(0)
   const [isPlaying, setIsPlaying] = useState(true)
   const [hoveredFeature, setHoveredFeature] = useState<number | null>(null)
@@ -110,7 +114,11 @@ export default function HomePage() {
     async function loadVideos() {
       try {
         setIsVideoLoading(true)
-        const data = await videosAPI.listPublic()
+        // Admins see all videos (including inactive ones for preview)
+        // Regular users only see active videos
+        console.log('[HomePage] Loading videos - isAdmin:', isAdmin, 'user:', user)
+        const data = isAdmin ? await videosAPI.listAdmin() : await videosAPI.listPublic()
+        console.log('[HomePage] Loaded videos:', data)
         if (cancelled) return
         if (Array.isArray(data) && data.length > 0) {
           const sorted = [...data]
@@ -120,9 +128,11 @@ export default function HomePage() {
               video_url: video.video_url ?? '',
               thumbnail_url: video.thumbnail_url ?? '',
             })) as ShowcaseVideo[]
+          console.log('[HomePage] Setting showcase videos:', sorted)
           setShowcaseVideos(sorted)
           setActiveVideoIndex(0)
         } else {
+          console.log('[HomePage] No videos returned, using fallback')
           setShowcaseVideos(fallbackShowcaseVideos)
         }
       } catch (error) {
@@ -142,7 +152,7 @@ export default function HomePage() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [isAdmin])
 
   const journeySteps = [
     {
@@ -434,37 +444,13 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white overflow-hidden">
+    <div className="min-h-screen bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] overflow-hidden">
       {/* 5-Second Hook: Immersive Hero */}
       <section className="relative min-h-screen flex items-center justify-center">
         {/* Animated Background */}
         <div className="absolute inset-0">
-          <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-black to-blue-900/20" />
-          {[...Array(6)].map((_, i) => (
-            <motion.div
-              key={i}
-              className="absolute rounded-full mix-blend-screen"
-              style={{
-                left: `${20 + (i * 15)}%`,
-                top: `${30 + (i * 10)}%`,
-                width: `${200 + (i * 50)}px`,
-                height: `${200 + (i * 50)}px`,
-                background: `radial-gradient(circle, ${['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#ec4899'][i]} 0%, transparent 70%)`,
-              }}
-              animate={{
-                scale: [1, 1.2, 1],
-                opacity: [0.3, 0.6, 0.3],
-                x: [0, 30, 0],
-                y: [0, -30, 0],
-              }}
-              transition={{
-                duration: 4 + (i * 0.5),
-                repeat: Infinity,
-                ease: "easeInOut",
-                delay: i * 0.2
-              }}
-            />
-          ))}
+          <div className="absolute inset-0 bg-gradient-to-br from-[var(--color-accent-secondary)]/20 via-[var(--color-bg-primary)] to-[var(--color-accent-primary)]/20" />
+          <AnimatedBackground orbCount={6} duration={12} />
         </div>
 
         {/* Main Content */}
@@ -538,13 +524,6 @@ export default function HomePage() {
                   whileHover={{ x: "0%" }}
                   transition={{ duration: 0.3 }}
                 />
-              </Link>
-              
-              <Link
-                to="/orientation"
-                className="px-8 py-4 border border-white/30 rounded-full font-semibold text-lg text-white hover:bg-white/10 transition-all duration-300 backdrop-blur-sm"
-              >
-                Explore Orientation Hub
               </Link>
               
               <button
@@ -739,7 +718,7 @@ export default function HomePage() {
 
           <div className="grid gap-10 lg:grid-cols-[3fr,2fr]">
             <div className="relative">
-              <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-black shadow-2xl shadow-purple-900/40">
+              <div className="relative overflow-hidden rounded-3xl border border-[var(--color-border-primary)]/10 bg-[var(--color-bg-secondary)] shadow-2xl shadow-[var(--color-accent-secondary)]/40">
                 <div className="relative aspect-video">
                   {isVideoLoading ? (
                     <div className="flex h-full items-center justify-center text-gray-400">
@@ -777,7 +756,7 @@ export default function HomePage() {
                           ? resolveMediaUrl(currentVideo.thumbnail_url)
                           : undefined
                       }
-                      className="absolute inset-0 h-full w-full rounded-3xl bg-black"
+                      className="absolute inset-0 h-full w-full rounded-3xl bg-[var(--color-bg-primary)]"
                     >
                       <source src={currentEmbed.src} />
                       Your browser does not support embedded videos.
@@ -827,9 +806,20 @@ export default function HomePage() {
 
             <div className="flex flex-col justify-between rounded-3xl border border-white/10 bg-white/5 p-8 backdrop-blur-xl">
               <div className="space-y-5">
-                <span className="inline-flex items-center gap-2 rounded-full bg-purple-500/20 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-purple-200">
-                  Step {totalVideos === 0 ? 0 : activeVideoIndex + 1} of {totalVideos}
-                </span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="inline-flex items-center gap-2 rounded-full bg-purple-500/20 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-purple-200">
+                    Step {totalVideos === 0 ? 0 : activeVideoIndex + 1} of {totalVideos}
+                  </span>
+                  {isAdmin && currentVideo && !currentVideo.is_active && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-yellow-500/20 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-yellow-200 border border-yellow-500/30">
+                      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                      Draft
+                    </span>
+                  )}
+                </div>
                 <h3 className="text-3xl font-bold text-white">
                   {currentVideo?.title ?? 'Experience AcademOra'}
                 </h3>
@@ -938,16 +928,24 @@ export default function HomePage() {
                   setIsModalOpen(true)
                 }}
               >
-                <div className="h-full p-8 bg-gradient-to-br from-gray-800/50 to-gray-900/50 backdrop-blur-sm rounded-2xl border border-gray-700/50 hover:border-purple-500/50 transition-all duration-300">
-                  <div className={`mb-6 ${feature.color}`}>
+                <div className="relative h-full p-8 bg-gradient-to-br from-gray-800/50 to-gray-900/50 backdrop-blur-sm rounded-2xl transition-all duration-300 overflow-hidden">
+                  {/* Hover gradient overlay */}
+                  <motion.div
+                    className="absolute inset-0 bg-gradient-to-br from-purple-600/20 to-pink-600/20 rounded-2xl"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: hoveredFeature === index ? 1 : 0 }}
+                    transition={{ duration: 0.3 }}
+                  />
+                  
+                  <div className={`relative z-10 mb-6 ${feature.color}`}>
                     {feature.icon}
                   </div>
                   
-                  <h3 className="text-xl font-bold mb-3 text-white">{feature.title}</h3>
-                  <p className="text-gray-400 mb-6">{feature.description}</p>
+                  <h3 className="relative z-10 text-xl font-bold mb-3 text-white">{feature.title}</h3>
+                  <p className="relative z-10 text-gray-400 mb-6">{feature.description}</p>
                   
                   <motion.div
-                    className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent"
+                    className="relative z-10 text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent"
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ 
                       opacity: hoveredFeature === index ? 1 : 0.7,
@@ -960,7 +958,7 @@ export default function HomePage() {
 
                   {/* Clickable Indicator */}
                   <motion.div
-                    className="absolute bottom-4 right-4 flex items-center gap-1 text-xs text-purple-400 opacity-60"
+                    className="absolute bottom-4 right-4 flex items-center gap-1 text-xs text-purple-400 z-10"
                     initial={{ opacity: 0 }}
                     animate={{ 
                       opacity: hoveredFeature === index ? 1 : 0.6,
@@ -971,14 +969,6 @@ export default function HomePage() {
                     <span>Click to learn more</span>
                     <ArrowRight className="w-3 h-3" />
                   </motion.div>
-
-                  {/* Hover Effect */}
-                  <motion.div
-                    className="absolute inset-0 bg-gradient-to-br from-purple-600/10 to-pink-600/10 rounded-2xl"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: hoveredFeature === index ? 1 : 0 }}
-                    transition={{ duration: 0.3 }}
-                  />
                 </div>
               </motion.div>
             ))}
@@ -1046,16 +1036,24 @@ export default function HomePage() {
                         setIsModalOpen(true)
                       }}
                     >
-                      <div className={`h-full p-6 bg-gradient-to-br from-gray-800/50 to-gray-900/50 backdrop-blur-sm rounded-2xl border ${
+                      <div className={`relative h-full p-6 bg-gradient-to-br from-gray-800/50 to-gray-900/50 backdrop-blur-sm rounded-2xl transition-all duration-300 overflow-hidden ${
                         feature.featured 
-                          ? 'border-purple-500/50' 
-                          : 'border-gray-700/50 hover:border-purple-500/50'
-                      } transition-all duration-300`}>
-                        <div className={`mb-4 ${feature.color}`}>
+                          ? 'ring-2 ring-purple-500/50' 
+                          : ''
+                      }`}>
+                        {/* Hover gradient overlay */}
+                        <motion.div
+                          className="absolute inset-0 bg-gradient-to-br from-purple-600/20 to-pink-600/20 rounded-2xl"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: hoveredFeature === index + 100 ? 1 : 0 }}
+                          transition={{ duration: 0.3 }}
+                        />
+                        
+                        <div className={`relative z-10 mb-4 ${feature.color}`}>
                           {feature.icon}
                         </div>
                         
-                        <div className="flex items-start justify-between mb-3">
+                        <div className="relative z-10 flex items-start justify-between mb-3">
                           <h3 className="text-lg font-bold text-white">{feature.title}</h3>
                           {feature.featured && (
                             <motion.div
@@ -1069,10 +1067,10 @@ export default function HomePage() {
                           )}
                         </div>
                         
-                        <p className="text-gray-400 text-sm mb-4">{feature.description}</p>
+                        <p className="relative z-10 text-gray-400 text-sm mb-4">{feature.description}</p>
                         
                         <motion.div
-                          className="text-lg font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent"
+                          className="relative z-10 text-lg font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent"
                           initial={{ opacity: 0 }}
                           animate={{ 
                             opacity: hoveredFeature === index + 100 ? 1 : 0.6,
@@ -1084,7 +1082,7 @@ export default function HomePage() {
 
                         {/* Clickable Indicator */}
                         <motion.div
-                          className="absolute bottom-3 right-3 flex items-center gap-1 text-xs text-purple-400 opacity-60"
+                          className="absolute bottom-3 right-3 flex items-center gap-1 text-xs text-purple-400 z-10"
                           initial={{ opacity: 0 }}
                           animate={{ 
                             opacity: hoveredFeature === index + 100 ? 1 : 0.6,
@@ -1095,14 +1093,6 @@ export default function HomePage() {
                           <span>Click to learn more</span>
                           <ArrowRight className="w-3 h-3" />
                         </motion.div>
-
-                        {/* Hover Effect */}
-                        <motion.div
-                          className="absolute inset-0 bg-gradient-to-br from-purple-600/10 to-pink-600/10 rounded-2xl"
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: hoveredFeature === index + 100 ? 1 : 0 }}
-                          transition={{ duration: 0.3 }}
-                        />
                       </div>
                     </motion.div>
                   ))}
@@ -1136,7 +1126,7 @@ export default function HomePage() {
             initial={{ opacity: 0, y: 50 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="bg-white/5 backdrop-blur-md rounded-3xl p-12 border border-white/10"
+            className="bg-white/5 backdrop-blur-md rounded-3xl p-12"
           >
             <div className="mb-8">
               <Award className="w-16 h-16 mx-auto text-yellow-400 mb-4" />
@@ -1151,7 +1141,7 @@ export default function HomePage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-              <div className="p-6 bg-red-900/20 rounded-2xl border border-red-500/30">
+              <div className="p-6 bg-red-900/20 rounded-2xl">
                 <h3 className="text-xl font-bold mb-4 text-red-400">The Old Way</h3>
                 <ul className="text-left space-y-2 text-gray-400">
                   <li className="flex items-center gap-2">
@@ -1169,7 +1159,7 @@ export default function HomePage() {
                 </ul>
               </div>
 
-              <div className="p-6 bg-green-900/20 rounded-2xl border border-green-500/30">
+              <div className="p-6 bg-green-900/20 rounded-2xl">
                 <h3 className="text-xl font-bold mb-4 text-green-400">The AcademOra Way</h3>
                 <ul className="text-left space-y-2 text-gray-400">
                   <li className="flex items-center gap-2">
@@ -1204,7 +1194,7 @@ export default function HomePage() {
               
               <Link
                 to="/pricing"
-                className="px-8 py-4 border border-white/30 rounded-full font-semibold text-lg hover:bg-white/10 transition-all duration-300"
+                className="px-8 py-4 rounded-full font-semibold text-lg bg-white/5 hover:bg-white/10 transition-all duration-300"
               >
                 See Pricing Plans
               </Link>
@@ -1214,7 +1204,7 @@ export default function HomePage() {
       </section>
 
       {/* Quick Start Banner */}
-      <section className="py-12 bg-black border-t border-gray-800">
+      <section className="py-12 bg-[var(--color-bg-primary)]">
         <div className="max-w-7xl mx-auto px-4 text-center">
           <p className="text-gray-400 mb-4">
             Join students finding their perfect educational path

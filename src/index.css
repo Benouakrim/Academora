@@ -5,19 +5,22 @@
  * Design tokens are centralized CSS variables that control the entire theme.
  */
 
-/* Import Tailwind directives */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
 /* Import design tokens - All CSS variables */
 @import './styles/tokens/index.css';
+
+/* Import theme overrides (scoped by body classes) */
+@import './styles/themes.css';
 
 /* Import component styles */
 @import './styles/components/index.css';
 
 /* Import editor styles */
 @import './styles/editor.css';
+
+/* Import Tailwind directives */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 /* ========================================
  * BASE STYLES

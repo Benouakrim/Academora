@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Videos API</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .video-box { border: 1px solid #ccc; padding: 10px; margin: 10px 0; background: #f9f9f9; }
+        .active { background: #d4edda; }
+        .inactive { background: #f8d7da; }
+        h1 { color: #333; }
+        h2 { color: #666; }
+        pre { background: #f4f4f4; padding: 10px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Testing Videos API</h1>
+    <div id="results">Loading...</div>
+
+    <script>
+        async function testAPI() {
+            const resultsDiv = document.getElementById('results');
+            
+            try {
+                resultsDiv.innerHTML = '<h2>Testing Public Videos API (/api/videos)</h2><p>Fetching...</p>';
+                
+                const response = await fetch('/api/videos');
+                const data = await response.json();
+                
+                resultsDiv.innerHTML = `<p><strong>Status: ${response.status}</strong></p>`;
+                resultsDiv.innerHTML += `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+                
+                if (data.error) {
+                    resultsDiv.innerHTML += `<p style="color: red;"><strong>Error: ${data.error}</strong></p>`;
+                } else if (Array.isArray(data)) {
+                    resultsDiv.innerHTML += `<h2>Total videos returned: ${data.length}</h2>`;
+                    
+                    if (data.length === 0) {
+                        resultsDiv.innerHTML += `<p style="color: orange;"><strong>⚠️ NO VIDEOS IN DATABASE WITH is_active = true!</strong></p>`;
+                        resultsDiv.innerHTML += `<p>This is why the homepage shows fallback videos.</p>`;
+                    } else {
+                        data.forEach((video, index) => {
+                            const className = video.is_active ? 'video-box active' : 'video-box inactive';
+                            resultsDiv.innerHTML += `
+                                <div class="${className}">
+                                    <h3>${index + 1}. ${video.title}</h3>
+                                    <p><strong>ID:</strong> ${video.id}</p>
+                                    <p><strong>Position:</strong> ${video.position}</p>
+                                    <p><strong>Is Active:</strong> ${video.is_active ? '✅ YES' : '❌ NO'}</p>
+                                    <p><strong>Video URL:</strong> ${video.video_url || '(none)'}</p>
+                                    <p><strong>Embed Code:</strong> ${video.embed_code ? 'Yes' : 'No'}</p>
+                                </div>
+                            `;
+                        });
+                    }
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `<p style="color: red;"><strong>Error: ${error.message}</strong></p>`;
+                resultsDiv.innerHTML += `<p>Make sure the backend server is running on port 3001.</p>`;
+                console.error('Error:', error);
+            }
+        }
+
+        testAPI();
+    </script>
+</body>
+</html>

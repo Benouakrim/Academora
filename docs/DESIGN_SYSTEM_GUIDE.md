@@ -623,3 +623,20 @@ When adding new design tokens:
 
 **Last Updated**: November 2025  
 **Version**: 1.0.0
+
+## Theming
+
+The app supports multiple themes (`default`, `verdant`) and two modes (`dark`, `light`). Only colors and fonts change across themes; layout, spacing, radii, and animations remain consistent.
+
+Runtime
+- `ThemeProvider` applies `theme-<name>` and `mode-<mode>` classes to `<body>`.
+- Preferences are saved in LocalStorage (`ao_theme_pref`) and applied pre-hydration to avoid FOUC.
+
+CSS variables
+- Theme/mode overrides are scoped in `src/styles/themes.css` under `body.theme-<name>.mode-<mode>`.
+- Key variables: `--chart-color-1..6`, `--chart-grid`, `--chart-axis`, `--chart-tick`, `--slider-track`, `--slider-progress-academic`, `--slider-progress-budget`, `--ambient-color-1..4`, `--heatmap-best`, `--heatmap-good`, `--heatmap-caution`, `--heatmap-risk`.
+
+Integration examples
+- Charts: `ComparisonCharts.tsx` uses `var(--chart-color-*)` and grid/tick vars.
+- Sliders: Matching/Scenario sliders use `--slider-*` linear gradients.
+- Decorative orbs: `AnimatedBackground.tsx` uses `--ambient-*`.

@@ -1,10 +1,10 @@
 import { motion } from 'framer-motion'
 import SEO from '../components/SEO'
-import { Users, Heart, Rocket } from 'lucide-react'
+import { Users, Rocket } from 'lucide-react'
 
 export default function JoinPage() {
   return (
-    <div className="relative bg-black text-white min-h-screen py-20 overflow-hidden">
+    <div className="relative bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] min-h-screen py-20 overflow-hidden">
       <SEO title="Join Us - AcademOra" description="Become part of the AcademOra team and help transform education" />
       
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

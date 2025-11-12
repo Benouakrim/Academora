@@ -2,15 +2,16 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import {
   ArrowLeft, MapPin, DollarSign, GraduationCap, Users, TrendingUp, Building,
-  Globe, Calendar, Award, BookOpen, Globe2, Briefcase, Target, Heart,
-  CheckCircle, XCircle, AlertCircle, ExternalLink, Clock, School, Trophy,
-  Zap, Shield, Home, Plane, Sun, Loader2, X, DollarSign as DollarIcon, BarChart3
+  Globe, Award, BookOpen, Globe2, Briefcase,
+  CheckCircle, XCircle, AlertCircle, ExternalLink, School, Trophy,
+  Zap, Shield, Home, Loader2, X, DollarSign as DollarIcon, BarChart3
 } from 'lucide-react'
 import { getCurrentUser, financialProfileAPI } from '../lib/api'
 import { UniversitiesService } from '../lib/services/universitiesService'
 import { ReviewsService } from '../lib/services/reviewsService'
 import SaveButton from '../components/SaveButton'
 import SEO from '../components/SEO'
+import ProgressBar from '../components/ProgressBar'
 import FinancialAidPredictor from '../components/FinancialAidPredictor'
 import CareerTrajectoryHeatmap from '../components/CareerTrajectoryHeatmap'
 import MentorshipSystem from '../components/MentorshipSystem'
@@ -157,7 +158,7 @@ export default function UniversityDetailPage() {
   })
   const [showMicroContentEditor, setShowMicroContentEditor] = useState(false)
   const [editingMicroContent, setEditingMicroContent] = useState<any>(null)
-  const [isUniversityOwner, setIsUniversityOwner] = useState(false)
+  const [isUniversityOwner] = useState(false)
 
   const refreshFinancialProfile = useCallback(async () => {
     const storedUser = getCurrentUser()
@@ -263,7 +264,7 @@ export default function UniversityDetailPage() {
     setShowMicroContentEditor(true)
   }
 
-  const handleSaveMicroContent = (content: MicroContent) => {
+  const handleSaveMicroContent = (_content: MicroContent) => {
     setShowMicroContentEditor(false)
     setEditingMicroContent(null)
     // Refresh the micro-content section
@@ -416,7 +417,7 @@ export default function UniversityDetailPage() {
     )
   }
 
-  const location = university.location_city || university.city || ''
+  const location = university.location_city || ''
   const country = university.location_country || university.country || ''
   const tuition = university.tuition_international || university.avg_tuition_per_year || 0
   const totalCost = tuition + (university.cost_of_living_est || 0)
@@ -435,7 +436,6 @@ export default function UniversityDetailPage() {
 
   const applicationDeadlines = parseJson(university.application_deadlines)
   const englishReqs = parseJson(university.international_english_reqs)
-  const coordinates = parseJson(university.location_coordinates)
 
   return (
     <div className="bg-gray-50 min-h-screen">
@@ -762,16 +762,12 @@ export default function UniversityDetailPage() {
                 {/* Acceptance Rate with Progress Bar */}
                 {university.acceptance_rate && (
                   <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-gray-700">Acceptance Rate</span>
-                      <span className="text-lg font-bold text-gray-900">{university.acceptance_rate}%</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-3">
-                      <div
-                        className="bg-primary-600 h-3 rounded-full transition-all"
-                        style={{ width: `${university.acceptance_rate}%` }}
-                      />
-                    </div>
+                    <ProgressBar
+                      value={university.acceptance_rate}
+                      variant="primary"
+                      label="Acceptance Rate"
+                      showLabel
+                    />
                     <div className="mt-1 text-xs text-gray-500">
                       {university.acceptance_rate < 20 ? 'Highly Selective' : 
                        university.acceptance_rate < 50 ? 'Selective' : 
@@ -808,7 +804,7 @@ export default function UniversityDetailPage() {
                     <div className="space-y-2">
                       {Object.entries(applicationDeadlines).map(([type, date]: [string, any]) => (
                         <div key={type} className="flex items-center justify-between bg-gray-50 px-4 py-2 rounded-lg">
-                          <span className="text-sm font-medium text-gray-700" style={{ textTransform: 'capitalize' }}>
+                          <span className="text-sm font-medium text-gray-700 capitalize">
                             {type.replace('_', ' ')}
                           </span>
                           <span className="text-sm text-gray-900 font-semibold">{date}</span>
@@ -909,16 +905,12 @@ export default function UniversityDetailPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-gray-200">
                   {university.percentage_receiving_aid && (
                     <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium text-gray-700">% Receiving Financial Aid</span>
-                        <span className="text-lg font-bold text-gray-900">{university.percentage_receiving_aid}%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-green-600 h-2 rounded-full"
-                          style={{ width: `${university.percentage_receiving_aid}%` }}
-                        />
-                      </div>
+                      <ProgressBar
+                        value={university.percentage_receiving_aid}
+                        variant="success"
+                        label="% Receiving Financial Aid"
+                        showLabel
+                      />
                     </div>
                   )}
                   {university.avg_financial_aid_package && (
@@ -966,7 +958,7 @@ export default function UniversityDetailPage() {
               )}
               <FinancialAidPredictor 
                 university={university} 
-                userProfile={userProfile}
+                userProfile={userProfile || undefined}
                 onRequestCompleteProfile={handleOpenFinancialProfileModal}
               />
             </div>
@@ -1011,16 +1003,12 @@ export default function UniversityDetailPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {university.percentage_international && (
                     <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium text-gray-700">International Students</span>
-                        <span className="text-lg font-bold text-gray-900">{university.percentage_international}%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-blue-600 h-2 rounded-full"
-                          style={{ width: `${university.percentage_international}%` }}
-                        />
-                      </div>
+                      <ProgressBar
+                        value={university.percentage_international}
+                        variant="info"
+                        label="International Students"
+                        showLabel
+                      />
                     </div>
                   )}
                   {university.gender_ratio && (
@@ -1028,16 +1016,12 @@ export default function UniversityDetailPage() {
                   )}
                   {university.retention_rate_first_year && (
                     <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium text-gray-700">First Year Retention Rate</span>
-                        <span className="text-lg font-bold text-gray-900">{university.retention_rate_first_year}%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-green-600 h-2 rounded-full"
-                          style={{ width: `${university.retention_rate_first_year}%` }}
-                        />
-                      </div>
+                      <ProgressBar
+                        value={university.retention_rate_first_year}
+                        variant="success"
+                        label="First Year Retention Rate"
+                        showLabel
+                      />
                     </div>
                   )}
                 </div>
@@ -1055,30 +1039,24 @@ export default function UniversityDetailPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {university.graduation_rate_4yr && (
                     <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium text-gray-700">4-Year Graduation Rate</span>
-                        <span className="text-xl font-bold text-gray-900">{university.graduation_rate_4yr}%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-3">
-                        <div
-                          className="bg-blue-600 h-3 rounded-full"
-                          style={{ width: `${university.graduation_rate_4yr}%` }}
-                        />
-                      </div>
+                      <ProgressBar
+                        value={university.graduation_rate_4yr}
+                        variant="info"
+                        label="4-Year Graduation Rate"
+                        showLabel
+                        height="lg"
+                      />
                     </div>
                   )}
                   {university.graduation_rate_6yr && (
                     <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium text-gray-700">6-Year Graduation Rate</span>
-                        <span className="text-xl font-bold text-gray-900">{university.graduation_rate_6yr}%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-3">
-                        <div
-                          className="bg-green-600 h-3 rounded-full"
-                          style={{ width: `${university.graduation_rate_6yr}%` }}
-                        />
-                      </div>
+                      <ProgressBar
+                        value={university.graduation_rate_6yr}
+                        variant="success"
+                        label="6-Year Graduation Rate"
+                        showLabel
+                        height="lg"
+                      />
                     </div>
                   )}
                 </div>
@@ -1087,16 +1065,13 @@ export default function UniversityDetailPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {university.employment_rate_6mo && (
                     <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium text-gray-700">Employment Rate (6 months)</span>
-                        <span className="text-xl font-bold text-gray-900">{university.employment_rate_6mo}%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-3">
-                        <div
-                          className="bg-primary-600 h-3 rounded-full"
-                          style={{ width: `${university.employment_rate_6mo}%` }}
-                        />
-                      </div>
+                      <ProgressBar
+                        value={university.employment_rate_6mo}
+                        variant="primary"
+                        label="Employment Rate (6 months)"
+                        showLabel
+                        height="lg"
+                      />
                     </div>
                   )}
                   {university.avg_starting_salary && (
@@ -1115,10 +1090,10 @@ export default function UniversityDetailPage() {
                     <div>
                       <div className="text-sm font-medium text-gray-700 mb-2">Internship Support</div>
                       <div className="flex items-center gap-2">
-                        <div className="flex-1 bg-gray-200 rounded-full h-2">
-                          <div
-                            className="bg-blue-600 h-2 rounded-full"
-                            style={{ width: `${(university.internship_placement_support / 5) * 100}%` }}
+                        <div className="flex-1">
+                          <ProgressBar 
+                            value={(university.internship_placement_support / 5) * 100}
+                            variant="info"
                           />
                         </div>
                         <span className="text-sm font-bold text-gray-900">{university.internship_placement_support}/5</span>
@@ -1129,10 +1104,10 @@ export default function UniversityDetailPage() {
                     <div>
                       <div className="text-sm font-medium text-gray-700 mb-2">Alumni Network</div>
                       <div className="flex items-center gap-2">
-                        <div className="flex-1 bg-gray-200 rounded-full h-2">
-                          <div
-                            className="bg-purple-600 h-2 rounded-full"
-                            style={{ width: `${(university.alumni_network_strength / 5) * 100}%` }}
+                        <div className="flex-1">
+                          <ProgressBar 
+                            value={(university.alumni_network_strength / 5) * 100}
+                            variant="purple"
                           />
                         </div>
                         <span className="text-sm font-bold text-gray-900">{university.alumni_network_strength}/5</span>
@@ -1453,8 +1428,8 @@ function InfoItem({ label, value }: { label: string; value: string | number | un
   )
 }
 
-function StatCard({ label, value, icon, color = 'blue' }: { label: string; value: string; icon: React.ReactNode; color?: string }) {
-  const colorClasses = {
+function StatCard({ label, value, icon, color = 'blue' }: { label: string; value: string; icon: React.ReactNode; color?: 'blue' | 'purple' | 'green' | 'orange' }) {
+  const colorClasses: Record<'blue' | 'purple' | 'green' | 'orange', string> = {
     blue: 'bg-blue-50 text-blue-600',
     purple: 'bg-purple-50 text-purple-600',
     green: 'bg-green-50 text-green-600',

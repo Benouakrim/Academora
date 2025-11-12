@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Videos API</title>
+</head>
+<body>
+    <h1>Testing Videos API</h1>
+    <div id="results"></div>
+
+    <script>
+        async function testAPI() {
+            const resultsDiv = document.getElementById('results');
+            
+            try {
+                resultsDiv.innerHTML += '<h2>Testing Public Videos API (/api/videos)</h2>';
+                const response = await fetch('http://localhost:3001/api/videos');
+                const data = await response.json();
+                
+                resultsDiv.innerHTML += `<p>Status: ${response.status}</p>`;
+                resultsDiv.innerHTML += `<p>Response:</p>`;
+                resultsDiv.innerHTML += `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+                
+                if (Array.isArray(data)) {
+                    resultsDiv.innerHTML += `<p><strong>Total videos returned: ${data.length}</strong></p>`;
+                    data.forEach((video, index) => {
+                        resultsDiv.innerHTML += `
+                            <div style="border: 1px solid #ccc; padding: 10px; margin: 10px 0;">
+                                <h3>${index + 1}. ${video.title}</h3>
+                                <p>ID: ${video.id}</p>
+                                <p>Position: ${video.position}</p>
+                                <p><strong>Is Active: ${video.is_active}</strong></p>
+                                <p>Video URL: ${video.video_url || '(none)'}</p>
+                                <p>Embed Code: ${video.embed_code ? 'Yes' : 'No'}</p>
+                            </div>
+                        `;
+                    });
+                }
+            } catch (error) {
+                resultsDiv.innerHTML += `<p style="color: red;">Error: ${error.message}</p>`;
+                console.error('Error:', error);
+            }
+        }
+
+        testAPI();
+    </script>
+</body>
+</html>

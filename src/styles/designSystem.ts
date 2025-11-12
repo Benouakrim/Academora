@@ -1,10 +1,10 @@
 // AcademOra Design System - Matching Homepage Style
 export const colors = {
-  // Primary dark theme colors
+  // Primary dark theme colors (bind to CSS variables; actual shades depend on theme/mode)
   background: {
-    primary: '#000000',
-    secondary: '#0a0a0a',
-    tertiary: '#111111',
+    primary: 'var(--color-bg-primary)',
+    secondary: 'var(--color-bg-secondary)',
+    tertiary: 'var(--color-gray-900)',
     gradient: 'from-black via-purple-950/20 to-black',
     card: 'from-gray-800/50 to-gray-900/50',
     overlay: 'bg-white/5 backdrop-blur-md',
@@ -25,16 +25,16 @@ export const colors = {
   
   // Text colors
   text: {
-    primary: '#ffffff',
-    secondary: '#e5e5e5',
-    tertiary: '#a1a1aa',
-    muted: '#71717a',
+    primary: 'var(--color-text-primary)',
+    secondary: 'var(--color-text-secondary)',
+    tertiary: 'var(--color-text-tertiary)',
+    muted: 'var(--color-gray-500)',
     accent: {
-      purple: '#c084fc',
-      pink: '#f9a8d4',
-      blue: '#93c5fd',
-      green: '#86efac',
-      orange: '#fdba74'
+      purple: 'var(--color-purple-400)',
+      pink: 'var(--color-pink-300)',
+      blue: 'var(--color-blue-300)',
+      green: 'var(--color-green-300)',
+      orange: 'var(--color-orange-300)'
     }
   },
   

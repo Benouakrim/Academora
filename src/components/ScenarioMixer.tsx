@@ -176,7 +176,6 @@ export default function ScenarioMixer({
   const resetScenario = () => {
     setCurrentScenario({})
     setActiveAdjustments([])
-    setScenarioResults([])
     onScenarioChange(originalResults)
   }
 
@@ -284,7 +283,7 @@ export default function ScenarioMixer({
                     onChange={(e) => updateScenarioValue('minGpa', parseFloat(e.target.value))}
                     className="w-full h-2 bg-gray-700/50 rounded-lg appearance-none cursor-pointer"
                     style={{
-                      background: `linear-gradient(to right, #8b5cf6 0%, #8b5cf6 ${(((currentScenario.minGpa ?? originalCriteria.minGpa) - 2.0) / 2.0) * 100}%, #374151 ${(((currentScenario.minGpa ?? originalCriteria.minGpa) - 2.0) / 2.0) * 100}%, #374151 100%)`
+                      background: `linear-gradient(to right, var(--slider-progress-academic) 0%, var(--slider-progress-academic) ${(((currentScenario.minGpa ?? originalCriteria.minGpa) - 2.0) / 2.0) * 100}%, var(--slider-track) ${(((currentScenario.minGpa ?? originalCriteria.minGpa) - 2.0) / 2.0) * 100}%, var(--slider-track) 100%)`
                     }}
                   />
                 </div>
@@ -311,7 +310,7 @@ export default function ScenarioMixer({
                     onChange={(e) => updateScenarioValue('maxBudget', parseInt(e.target.value))}
                     className="w-full h-2 bg-gray-700/50 rounded-lg appearance-none cursor-pointer"
                     style={{
-                      background: `linear-gradient(to right, #10b981 0%, #10b981 ${(((currentScenario.maxBudget ?? originalCriteria.maxBudget) - 1000) / 79000) * 100}%, #374151 ${(((currentScenario.maxBudget ?? originalCriteria.maxBudget) - 1000) / 79000) * 100}%, #374151 100%)`
+                      background: `linear-gradient(to right, var(--slider-progress-budget) 0%, var(--slider-progress-budget) ${(((currentScenario.maxBudget ?? originalCriteria.maxBudget) - 1000) / 79000) * 100}%, var(--slider-track) ${(((currentScenario.maxBudget ?? originalCriteria.maxBudget) - 1000) / 79000) * 100}%, var(--slider-track) 100%)`
                     }}
                   />
                 </div>

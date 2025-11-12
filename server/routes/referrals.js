@@ -1,11 +1,13 @@
 import express from 'express';
-import { parseUserToken, requireUser } from '../middleware/auth.js';
+import { requireUser } from '../middleware/auth.js';
 import { referrals } from '../data/referrals.js';
 
 const router = express.Router();
 
 // Get user's referral code and stats
-router.get('/my-code', parseUserToken, requireUser, async (req, res) => {
+// Note: parseUserToken is applied globally in app.js, no need to apply it here again
+router.get('/my-code', requireUser, async (req, res) => {
+  console.log('[REFERRALS] /my-code hit, user:', req.user ? req.user.id : 'NO USER');
   try {
     const userId = req.user.id;
 
@@ -32,7 +34,7 @@ router.get('/my-code', parseUserToken, requireUser, async (req, res) => {
 });
 
 // Get user's referred users
-router.get('/my-referrals', parseUserToken, requireUser, async (req, res) => {
+router.get('/my-referrals', requireUser, async (req, res) => {
   try {
     const userId = req.user.id;
     const limit = parseInt(req.query.limit) || 50;
@@ -48,7 +50,7 @@ router.get('/my-referrals', parseUserToken, requireUser, async (req, res) => {
 });
 
 // Get user's rewards
-router.get('/my-rewards', parseUserToken, requireUser, async (req, res) => {
+router.get('/my-rewards', requireUser, async (req, res) => {
   try {
     const userId = req.user.id;
     const rewards = await referrals.getUserRewards(userId);

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { FileText, Search, Calendar, BookOpen } from 'lucide-react'
+import { FileText, Search, BookOpen } from 'lucide-react'
 import { motion } from 'framer-motion'
 import SEO from '../components/SEO'
+import AnimatedBackground from '../components/AnimatedBackground'
 
 interface Doc {
   id: string
@@ -115,7 +116,7 @@ export default function DocsPage() {
 
   if (loading) {
     return (
-      <div className="relative bg-black text-white min-h-screen py-20 overflow-hidden">
+      <div className="relative bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] min-h-screen py-20 overflow-hidden">
         <SEO title="AcademOra Docs" description="Comprehensive documentation for AcademOra platform" />
         <div className="text-center py-20">
           <motion.div
@@ -130,35 +131,15 @@ export default function DocsPage() {
   }
 
   return (
-    <div className="relative bg-black text-white min-h-screen py-20 overflow-hidden">
+    <div className="relative bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] min-h-screen py-20 overflow-hidden">
       <SEO title="AcademOra Docs" description="Comprehensive documentation for AcademOra platform" />
       
       {/* Animated background elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {[...Array(4)].map((_, i) => (
-          <motion.div
-            key={i}
-            className="absolute rounded-full mix-blend-screen"
-            style={{
-              left: `${15 + (i * 25)}%`,
-              top: `${20 + (i * 15)}%`,
-              width: `${150 + (i * 100)}px`,
-              height: `${150 + (i * 100)}px`,
-              background: `radial-gradient(circle, ${['#3b82f6', '#06b6d4', '#10b981', '#8b5cf6'][i]} 0%, transparent 70%)`,
-            }}
-            animate={{
-              scale: [1, 1.3, 1],
-              opacity: [0.2, 0.4, 0.2],
-            }}
-            transition={{
-              duration: 5 + (i * 0.5),
-              repeat: Infinity,
-              ease: "easeInOut",
-              delay: i * 0.3
-            }}
-          />
-        ))}
-      </div>
+      <AnimatedBackground 
+        colors={['var(--ambient-color-2)', 'var(--chart-color-2)', 'var(--ambient-color-3)', 'var(--ambient-color-1)']} 
+        orbCount={4}
+        duration={16}
+      />
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}

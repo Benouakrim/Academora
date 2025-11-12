@@ -41,7 +41,15 @@ interface ChartViewProps {
   predictions: any[] | null
 }
 
-const COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#10b981', '#f59e0b', '#ef4444']
+// Chart color palette now sourced from CSS variables (themes can override)
+const COLORS = [
+  'var(--chart-color-1)',
+  'var(--chart-color-2)',
+  'var(--chart-color-3)',
+  'var(--chart-color-4)',
+  'var(--chart-color-5)',
+  'var(--chart-color-6)'
+]
 
 export default function ComparisonCharts({ universities, predictions }: ChartViewProps) {
   // Prepare data for various charts
@@ -169,7 +177,7 @@ export default function ComparisonCharts({ universities, predictions }: ChartVie
         </div>
         <ResponsiveContainer width="100%" height={350}>
           <BarChart data={costData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
             <XAxis dataKey="name" tick={{ fontSize: 12 }} />
             <YAxis 
               tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
@@ -177,11 +185,11 @@ export default function ComparisonCharts({ universities, predictions }: ChartVie
             />
             <Tooltip content={<CustomTooltip />} />
             <Legend />
-            <Bar dataKey="tuition" name="Listed Tuition" fill="#3b82f6" radius={[8, 8, 0, 0]} />
+            <Bar dataKey="tuition" name="Listed Tuition" fill="var(--chart-color-1)" radius={[8, 8, 0, 0]} />
             {predictions && (
               <>
-                <Bar dataKey="predictedCost" name="Your Predicted Cost" fill="#8b5cf6" radius={[8, 8, 0, 0]} />
-                <Bar dataKey="aid" name="Estimated Aid" fill="#10b981" radius={[8, 8, 0, 0]} />
+                <Bar dataKey="predictedCost" name="Your Predicted Cost" fill="var(--chart-color-2)" radius={[8, 8, 0, 0]} />
+                <Bar dataKey="aid" name="Estimated Aid" fill="var(--chart-color-4)" radius={[8, 8, 0, 0]} />
               </>
             )}
           </BarChart>
@@ -206,8 +214,8 @@ export default function ComparisonCharts({ universities, predictions }: ChartVie
         </div>
         <ResponsiveContainer width="100%" height={400}>
           <RadarChart data={radarData}>
-            <PolarGrid stroke="#e5e7eb" />
-            <PolarAngleAxis dataKey="metric" tick={{ fontSize: 12, fill: '#6b7280' }} />
+            <PolarGrid stroke="var(--chart-grid)" />
+            <PolarAngleAxis dataKey="metric" tick={{ fontSize: 12, fill: 'var(--chart-tick)' }} />
             <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fontSize: 10 }} />
             <Tooltip />
             <Legend />
@@ -244,7 +252,7 @@ export default function ComparisonCharts({ universities, predictions }: ChartVie
           </div>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={enrollmentData} layout="vertical">
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
               <XAxis 
                 type="number" 
                 tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : value}
@@ -287,7 +295,7 @@ export default function ComparisonCharts({ universities, predictions }: ChartVie
                   labelLine={false}
                   label={({ name, value }) => `${(name || '').substring(0, 15)}: ${value}%`}
                   outerRadius={80}
-                  fill="#8884d8"
+                  fill="var(--chart-color-2)"
                   dataKey="value"
                 >
                   {acceptanceData.map((entry, index) => (
@@ -319,7 +327,7 @@ export default function ComparisonCharts({ universities, predictions }: ChartVie
         </div>
         <ResponsiveContainer width="100%" height={350}>
           <LineChart data={outcomesData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
             <XAxis dataKey="name" tick={{ fontSize: 12 }} />
             <YAxis yAxisId="left" tick={{ fontSize: 12 }} />
             <YAxis 
@@ -335,27 +343,27 @@ export default function ComparisonCharts({ universities, predictions }: ChartVie
               type="monotone" 
               dataKey="graduation" 
               name="Graduation Rate (%)" 
-              stroke="#3b82f6" 
+              stroke="var(--chart-color-1)" 
               strokeWidth={3}
-              dot={{ r: 5, fill: '#3b82f6' }}
+              dot={{ r: 5, fill: 'var(--chart-color-1)' }}
             />
             <Line 
               yAxisId="left"
               type="monotone" 
               dataKey="employment" 
               name="Employment Rate (%)" 
-              stroke="#10b981" 
+              stroke="var(--chart-color-4)" 
               strokeWidth={3}
-              dot={{ r: 5, fill: '#10b981' }}
+              dot={{ r: 5, fill: 'var(--chart-color-4)' }}
             />
             <Line 
               yAxisId="right"
               type="monotone" 
               dataKey="salary" 
               name="Starting Salary ($k)" 
-              stroke="#f59e0b" 
+              stroke="var(--chart-color-5)" 
               strokeWidth={3}
-              dot={{ r: 5, fill: '#f59e0b' }}
+              dot={{ r: 5, fill: 'var(--chart-color-5)' }}
             />
           </LineChart>
         </ResponsiveContainer>

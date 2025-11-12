@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { ArrowLeft, BookOpen, Globe, Compass, Brain, Users, Scale, DollarSign, BarChart3, Share2, Target, Lightbulb, Award, Zap } from 'lucide-react'
+import { ArrowLeft, BookOpen, Globe, Compass, Brain, Users, Scale, DollarSign, BarChart3, Share2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useEffect } from 'react'
 
@@ -164,7 +164,7 @@ export default function EcosystemDocsPage() {
   const categories = [...new Set(terminology.map(item => item.category))]
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">
       {/* Header */}
       <div className="bg-gradient-to-b from-gray-900 to-black py-20">
         <div className="max-w-4xl mx-auto px-4">

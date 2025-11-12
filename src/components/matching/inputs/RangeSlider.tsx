@@ -26,7 +26,7 @@ export default function RangeSlider({ value, min = 0, max = 100, step = 1, onCha
             onChange={(e) => onChange(Number(e.target.value))}
             className="w-full appearance-none h-2 rounded-full bg-slate-200/80 focus:outline-none focus:ring-2 focus:ring-primary-200"
             style={{
-              background: `linear-gradient(90deg, rgb(99,102,241) ${percentage}%, rgba(226,232,240,0.7) ${percentage}%)`,
+              background: `linear-gradient(90deg, var(--slider-progress-academic) ${percentage}%, var(--slider-track) ${percentage}%)`,
             }}
           />
         </div>

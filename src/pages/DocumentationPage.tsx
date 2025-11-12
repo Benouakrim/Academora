@@ -336,7 +336,7 @@ export default function DocumentationPage() {
   const Icon = doc.icon
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">
       {/* Header */}
       <div className="bg-gradient-to-b from-gray-900 to-black py-20">
         <div className="max-w-4xl mx-auto px-4">

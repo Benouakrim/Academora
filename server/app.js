@@ -120,12 +120,13 @@ export function createApp() {
   app.use('/api/pages', staticPagesRoutes);
   // Admin static pages management
   app.use('/api/admin/pages', adminStaticPagesRoutes);
-  // Micro-content admin routes
-  app.use('/api', microContentRoutes);
   // Feature access status
   app.use('/api/access', accessStatusRoutes);
+  // Public videos (MUST be before microContent to avoid auth middleware)
   app.use('/api/videos', videosRoutes);
   app.use('/api/admin/videos', adminVideosRoutes);
+  // Micro-content admin routes (has requireAdmin middleware)
+  app.use('/api', microContentRoutes);
   app.use('/api/billing', billingRoutes);
   app.use('/api/data', dataExportRoutes);
   // User article submission and management

@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Calendar, User, ArrowRight, Edit, Trash2, Eye, BookOpen, FileText, Search, Filter, Tag as TagIcon } from 'lucide-react'
+import { motion } from 'framer-motion'
 import { adminAPI } from '../lib/api'
 import { BlogService } from '../lib/services/blogService'
 import SEO from '../components/SEO'
 import { getCurrentUser } from '../lib/api'
-import { motion } from 'framer-motion'
+import AnimatedBackground from '../components/AnimatedBackground'
 
 interface Article {
   id: string
@@ -318,35 +319,15 @@ export default function BlogPage() {
   }, [docCategories, selectedCategory, syncParams, viewMode])
 
   return (
-    <div className="relative bg-black text-white min-h-screen py-20 overflow-hidden">
+    <div className="relative bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] min-h-screen py-20 overflow-hidden">
       <SEO title="AcademOra Read" description="Insights, guides, and articles for your academic journey" />
       
       {/* Animated background elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {[...Array(4)].map((_, i) => (
-          <motion.div
-            key={i}
-            className="absolute rounded-full mix-blend-screen"
-            style={{
-              left: `${15 + (i * 25)}%`,
-              top: `${20 + (i * 15)}%`,
-              width: `${150 + (i * 100)}px`,
-              height: `${150 + (i * 100)}px`,
-              background: `radial-gradient(circle, ${['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b'][i]} 0%, transparent 70%)`,
-            }}
-            animate={{
-              scale: [1, 1.3, 1],
-              opacity: [0.2, 0.4, 0.2],
-            }}
-            transition={{
-              duration: 5 + (i * 0.5),
-              repeat: Infinity,
-              ease: "easeInOut",
-              delay: i * 0.3
-            }}
-          />
-        ))}
-      </div>
+      <AnimatedBackground 
+  colors={['var(--chart-color-2)', 'var(--chart-color-1)', 'var(--chart-color-4)', 'var(--chart-color-5)']} 
+        orbCount={4}
+        duration={15}
+      />
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
@@ -435,7 +416,7 @@ export default function BlogPage() {
             </div>
           </div>
 
-          <div className="bg-gray-900/50 backdrop-blur-md border border-gray-800/70 rounded-2xl p-6">
+          <div className="bg-gray-900/50 backdrop-blur-md rounded-2xl p-6">
             <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-3 md:flex-row md:items-center">
                 <div className="relative flex-1">
@@ -445,7 +426,7 @@ export default function BlogPage() {
                     value={searchTerm}
                     onChange={event => handleSearchInputChange(event.target.value)}
                     placeholder={viewMode === 'articles' ? 'Search articles by title, excerpt, category, or tag' : 'Search docs by title or description'}
-                    className="w-full bg-black/60 border border-gray-800 rounded-xl py-3 pl-12 pr-4 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/30 transition"
+                    className="w-full bg-black/60 rounded-xl py-3 pl-12 pr-4 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500/30 transition"
                   />
                 </div>
 
@@ -455,7 +436,7 @@ export default function BlogPage() {
                     <select
                       value={selectedCategory}
                       onChange={event => handleCategoryChange(event.target.value)}
-                      className="appearance-none bg-black/60 border border-gray-800 rounded-xl py-3 pl-10 pr-8 text-sm text-white focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/30 transition min-w-[160px]"
+                      className="appearance-none bg-black/60 rounded-xl py-3 pl-10 pr-8 text-sm text-white focus:outline-none focus:ring-2 focus:ring-purple-500/30 transition min-w-[160px]"
                     >
                       <option value="all">All Categories</option>
                       {categoryOptions.map(category => (
@@ -473,7 +454,7 @@ export default function BlogPage() {
                       <select
                         value={selectedTag}
                         onChange={event => handleTagChange(event.target.value)}
-                        className="appearance-none bg-black/60 border border-gray-800 rounded-xl py-3 pl-10 pr-8 text-sm text-white focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/30 transition min-w-[160px]"
+                        className="appearance-none bg-black/60 rounded-xl py-3 pl-10 pr-8 text-sm text-white focus:outline-none focus:ring-2 focus:ring-purple-500/30 transition min-w-[160px]"
                       >
                         <option value="all">All Tags</option>
                         {articleTags.map(tag => (
@@ -529,7 +510,7 @@ export default function BlogPage() {
             animate={{ opacity: 1, scale: 1 }}
             className="text-center py-20"
           >
-            <div className="bg-red-900/20 backdrop-blur-sm border border-red-500/30 rounded-2xl p-8 max-w-2xl mx-auto">
+            <div className="bg-red-900/20 backdrop-blur-sm rounded-2xl p-8 max-w-2xl mx-auto">
               <h3 className="text-xl font-bold text-red-300 mb-4">Error Loading Articles</h3>
               <p className="text-red-400 mb-4">{error}</p>
               <p className="text-sm text-red-500">
@@ -543,7 +524,7 @@ export default function BlogPage() {
             animate={{ opacity: 1, y: 0 }}
             className="text-center py-20"
           >
-            <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-12 border border-gray-700/50">
+            <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-12">
               <BookOpen className="w-16 h-16 text-gray-400 mx-auto mb-6" />
               <p className="text-xl text-gray-300 mb-4">
                 {articles.length === 0 ? 'No articles found.' : 'No articles match your search or filters.'}
@@ -559,7 +540,7 @@ export default function BlogPage() {
             animate={{ opacity: 1, y: 0 }}
             className="text-center py-20"
           >
-            <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-12 border border-gray-700/50">
+            <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-12">
               <FileText className="w-16 h-16 text-gray-400 mx-auto mb-6" />
               <p className="text-xl text-gray-300 mb-4">
                 {docs.length === 0 ? 'No docs found.' : 'No docs match your search or filters.'}
@@ -580,7 +561,7 @@ export default function BlogPage() {
                     viewport={{ once: true }}
                     transition={{ duration: 0.5, delay: index * 0.1 }}
                     whileHover={{ y: -10, transition: { duration: 0.2 } }}
-                    className="group bg-gradient-to-br from-gray-800/50 to-gray-900/50 backdrop-blur-sm rounded-2xl border border-gray-700/50 hover:border-purple-500/50 hover:shadow-2xl hover:shadow-purple-500/25 transition-all duration-300 overflow-hidden relative"
+                    className="group bg-gradient-to-br from-gray-800/50 to-gray-900/50 backdrop-blur-sm rounded-2xl hover:shadow-2xl hover:shadow-purple-500/25 transition-all duration-300 overflow-hidden relative"
                   >
                     {/* Admin Action Buttons */}
                     {isAdmin && (
@@ -644,7 +625,7 @@ export default function BlogPage() {
                         (article as any).terms.slice(0, 6).map((t: any) => (
                           <motion.span 
                             key={t.id} 
-                            className="inline-block bg-purple-500/20 backdrop-blur-sm text-purple-300 text-xs font-semibold px-3 py-1 rounded-full border border-purple-500/30"
+                            className="inline-block bg-purple-500/20 backdrop-blur-sm text-purple-300 text-xs font-semibold px-3 py-1 rounded-full"
                             whileHover={{ scale: 1.05 }}
                             transition={{ duration: 0.2 }}
                           >
@@ -653,7 +634,7 @@ export default function BlogPage() {
                         ))
                       ) : (
                         <motion.span 
-                          className="inline-block bg-purple-500/20 backdrop-blur-sm text-purple-300 text-xs font-semibold px-3 py-1 rounded-full border border-purple-500/30"
+                          className="inline-block bg-purple-500/20 backdrop-blur-sm text-purple-300 text-xs font-semibold px-3 py-1 rounded-full"
                           whileHover={{ scale: 1.05 }}
                           transition={{ duration: 0.2 }}
                         >
@@ -701,7 +682,7 @@ export default function BlogPage() {
                     viewport={{ once: true }}
                     transition={{ duration: 0.5, delay: index * 0.1 }}
                     whileHover={{ y: -10, transition: { duration: 0.2 } }}
-                    className="group bg-gradient-to-br from-gray-800/50 to-gray-900/50 backdrop-blur-sm rounded-2xl border border-gray-700/50 hover:border-blue-500/50 hover:shadow-2xl hover:shadow-blue-500/25 transition-all duration-300 overflow-hidden relative"
+                    className="group bg-gradient-to-br from-gray-800/50 to-gray-900/50 backdrop-blur-sm rounded-2xl hover:shadow-2xl hover:shadow-blue-500/25 transition-all duration-300 overflow-hidden relative"
                   >
                     {/* Doc Content */}
                     <div className="p-6">

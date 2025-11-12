@@ -187,7 +187,7 @@ export default function AdminMenu({ isOpen, onToggle }: AdminMenuProps) {
         </div>
 
         {/* Menu Items - Scrollable */}
-        <div className="flex-1 overflow-y-auto p-4" style={{ minHeight: 0 }}>
+        <div className="flex-1 overflow-y-auto p-4 min-h-0">
           <div className="space-y-2">
             {menuItems.map((item) => {
               const Icon = item.icon;
