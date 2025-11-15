@@ -103,7 +103,7 @@ router.get('/can-submit', parseUserToken, requireUser, async (req, res) => {
     const result = await pool.query(
       `SELECT COUNT(*)::integer as pending_count
        FROM articles
-       WHERE author_id = $1 AND status IN ('draft', 'pending')`,
+       WHERE author_id = $1 AND status = 'pending'`,
       [userId]
     );
 
@@ -153,7 +153,7 @@ router.post('/submit', parseUserToken, requireUser, async (req, res) => {
       const pendingCheck = await pool.query(
         `SELECT COUNT(*)::integer as pending_count
          FROM articles
-         WHERE author_id = $1 AND status IN ('draft', 'pending') AND ($2::integer IS NULL OR id != $2)`,
+         WHERE author_id = $1 AND status = 'pending' AND ($2::integer IS NULL OR id != $2)`,
         [userId, id || null]
       );
 

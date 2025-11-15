@@ -3,7 +3,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
-import { parseUserToken, requireAdmin } from '../middleware/auth.js';
+import { parseUserToken, requireAdmin, requireUser } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -58,7 +58,7 @@ const videoUpload = multer({
 });
 
 // Upload image endpoint
-router.post('/image', parseUserToken, requireAdmin, imageUpload.single('image'), (req, res) => {
+router.post('/image', parseUserToken, requireUser, imageUpload.single('image'), (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No image file provided' });
@@ -98,7 +98,7 @@ router.delete('/image/:filename', parseUserToken, requireAdmin, (req, res) => {
   }
 });
 
-router.post('/video', parseUserToken, requireAdmin, videoUpload.single('video'), (req, res) => {
+router.post('/video', parseUserToken, requireUser, videoUpload.single('video'), (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No video file provided' });
