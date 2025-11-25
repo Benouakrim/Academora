@@ -8,6 +8,7 @@ import { notFoundHandler, errorHandler } from './middleware/errorHandler.js';
 import { parseUserToken } from './middleware/auth.js';
 
 import authRoutes from './routes/auth.js';
+import clerkWebhookRoutes from './routes/clerkWebhook.js';
 import blogRoutes from './routes/blog.js';
 import orientationRoutes from './routes/orientation.js';
 import adminRoutes from './routes/admin.js';
@@ -46,6 +47,8 @@ import userArticlesRoutes from './routes/userArticles.js';
 import articleReviewRoutes from './routes/articleReview.js';
 import referralsRoutes from './routes/referrals.js';
 import adminReferralsRoutes from './routes/adminReferrals.js';
+import categoriesRoutes from './routes/categories.js';
+import taxonomyTermsRoutes from './routes/taxonomyTerms.js';
 
 dotenv.config();
 
@@ -68,8 +71,9 @@ export function createApp() {
   // Rate limiting for all API routes
   app.use('/api', generalLimiter);
 
-  // Try to parse user token globally (non-blocking)
-  app.use(parseUserToken);
+  // NOTE: parseUserToken (Clerk middleware) is NO LONGER applied globally
+  // It will be applied only to routes that need authentication
+  // This prevents errors on public endpoints when Clerk is not configured
 
   // Serve static files from public directory
   app.use('/uploads', express.static(path.join(process.cwd(), 'public', 'uploads')));
@@ -79,7 +83,11 @@ export function createApp() {
     res.json({ status: 'ok', message: 'AcademOra API is running' });
   });
 
+  // Clerk webhook (must be before Clerk middleware to avoid authentication)
+  app.use('/api', clerkWebhookRoutes);
+
   // Routes
+  // Note: Legacy auth routes are deprecated - use Clerk for authentication
   app.use('/api/auth', authLimiter, authRoutes);
   app.use('/api/blog', blogRoutes);
   app.use('/api/orientation', orientationRoutes);
@@ -125,12 +133,15 @@ export function createApp() {
   // Public videos (MUST be before microContent to avoid auth middleware)
   app.use('/api/videos', videosRoutes);
   app.use('/api/admin/videos', adminVideosRoutes);
+  // Public categories and taxonomy terms (no auth required)
+  app.use('/api/categories', categoriesRoutes);
+  app.use('/api/taxonomy-terms', taxonomyTermsRoutes);
+  // User article submission and management (MUST be before /api routes to avoid conflicts)
+  app.use('/api/user-articles', userArticlesRoutes);
   // Micro-content admin routes (has requireAdmin middleware)
   app.use('/api', microContentRoutes);
   app.use('/api/billing', billingRoutes);
   app.use('/api/data', dataExportRoutes);
-  // User article submission and management
-  app.use('/api/user-articles', userArticlesRoutes);
   // Admin article review portal
   app.use('/api/article-review', articleReviewRoutes);
   // User referral system

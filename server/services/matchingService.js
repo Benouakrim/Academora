@@ -1,5 +1,5 @@
 import { getAllUniversities } from '../data/universities.js';
-import { supabase } from '../database/supabase.js';
+import pool from '../database/pool.js';
 
 async function resolvePlanKey(user) {
   if (!user) {
@@ -12,17 +12,8 @@ async function resolvePlanKey(user) {
   }
 
   try {
-    const { data, error } = await supabase
-      .from('plans')
-      .select('key')
-      .eq('id', user.plan_id)
-      .maybeSingle();
-
-    if (error) {
-      console.error('Failed to fetch plan for user in matching service:', error);
-    }
-
-    return data?.key || 'free';
+    const result = await pool.query('SELECT key FROM plans WHERE id = $1', [user.plan_id]);
+    return result.rows[0]?.key || 'free';
   } catch (err) {
     console.error('Unexpected error while resolving plan key:', err);
     return 'free';

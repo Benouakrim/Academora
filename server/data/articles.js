@@ -1,38 +1,23 @@
-import supabase from '../database/supabase.js';
+import prisma from '../database/prisma.js';
 import { listArticleTerms, setArticleTerms } from './taxonomies.js';
 import { getHotArticlesByVelocity } from './articleViews.js';
 
 // Get all published articles
 export async function getArticles(categoryName = null) {
   try {
-    let query = supabase
-      .from('articles')
-      .select('*')
-      .eq('published', true);
+    const where = {
+      published: true,
+      ...(categoryName ? { category: categoryName } : {}),
+    };
 
-    if (categoryName) {
-      query = query.eq('category', categoryName);
-    }
+    const articles = await prisma.article.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+    });
 
-    const { data, error } = await query.order('created_at', { ascending: false });
-
-    if (error) {
-      // Provide more helpful error messages
-      if (error.message && error.message.includes('JWT')) {
-        throw new Error('Supabase authentication failed. Please check your SUPABASE_KEY in the .env file.');
-      }
-      if ((error.message && error.message.includes('relation')) || error.code === '42P01') {
-        throw new Error('Articles table does not exist. Please run the database schema from server/database/schema.sql');
-      }
-      throw error;
-    }
-    return data || [];
+    return articles || [];
   } catch (error) {
-    // If error is already an Error object with message, throw it as is
-    if (error instanceof Error) {
-      throw error;
-    }
-    // Otherwise wrap it
+    console.error('❌ getArticles error:', error);
     throw new Error(error.message || 'Failed to fetch articles from database');
   }
 }
@@ -46,17 +31,17 @@ export async function getSimilarArticles(currentArticleSlug, limit = 6) {
       return [];
     }
 
-    const { data, error } = await supabase
-      .from('articles')
-      .select('*')
-      .eq('published', true)
-      .eq('category', currentArticle.category)
-      .neq('slug', currentArticleSlug)
-      .order('created_at', { ascending: false })
-      .limit(limit);
+    const articles = await prisma.article.findMany({
+      where: {
+        published: true,
+        category: currentArticle.category,
+        slug: { not: currentArticleSlug },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    });
 
-    if (error) throw error;
-    return data || [];
+    return articles || [];
   } catch (error) {
     console.error('Error fetching similar articles:', error);
     return [];
@@ -73,15 +58,14 @@ export async function getRecommendedArticles(currentArticleSlug, limit = 6) {
     }
 
     // Algorithm: Mix of recent articles and articles from related categories
-    const { data: recentArticles, error: recentError } = await supabase
-      .from('articles')
-      .select('*')
-      .eq('published', true)
-      .neq('slug', currentArticleSlug)
-      .order('created_at', { ascending: false })
-      .limit(limit);
-
-    if (recentError) throw recentError;
+    const recentArticles = await prisma.article.findMany({
+      where: {
+        published: true,
+        slug: { not: currentArticleSlug },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    });
 
     // If we have enough recent articles, return them
     if (recentArticles && recentArticles.length >= limit) {
@@ -89,16 +73,18 @@ export async function getRecommendedArticles(currentArticleSlug, limit = 6) {
     }
 
     // Otherwise, get more articles to fill the limit
-    const { data: additionalArticles, error: additionalError } = await supabase
-      .from('articles')
-      .select('*')
-      .eq('published', true)
-      .neq('slug', currentArticleSlug)
-      .not('slug', 'in', `(${recentArticles?.map(a => a.slug).join(',')})`)
-      .order('created_at', { ascending: false })
-      .limit(limit - (recentArticles?.length || 0));
-
-    if (additionalError) throw additionalError;
+    const excludeSlugs = recentArticles.map(a => a.slug);
+    const additionalArticles = await prisma.article.findMany({
+      where: {
+        published: true,
+        slug: { 
+          not: currentArticleSlug,
+          notIn: excludeSlugs,
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit - (recentArticles?.length || 0),
+    });
 
     return [...(recentArticles || []), ...(additionalArticles || [])].slice(0, limit);
   } catch (error) {
@@ -120,21 +106,18 @@ export async function getHotArticles(currentArticleSlug = null, limit = 6) {
 // Get latest articles
 export async function getLatestArticles(currentArticleSlug = null, limit = 6) {
   try {
-    let query = supabase
-      .from('articles')
-      .select('*')
-      .eq('published', true)
-      .order('created_at', { ascending: false })
-      .limit(limit);
+    const where = {
+      published: true,
+      ...(currentArticleSlug ? { slug: { not: currentArticleSlug } } : {}),
+    };
 
-    if (currentArticleSlug) {
-      query = query.neq('slug', currentArticleSlug);
-    }
+    const articles = await prisma.article.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    });
 
-    const { data, error } = await query;
-
-    if (error) throw error;
-    return data || [];
+    return articles || [];
   } catch (error) {
     console.error('Error fetching latest articles:', error);
     return [];
@@ -171,13 +154,11 @@ export async function getArticleSections(currentArticleSlug, limit = 6) {
 // Get all articles (including unpublished) - for admin
 export async function getAllArticles() {
   try {
-    const { data, error } = await supabase
-      .from('articles')
-      .select('*')
-      .order('created_at', { ascending: false });
+    const articles = await prisma.article.findMany({
+      orderBy: { createdAt: 'desc' },
+    });
 
-    if (error) throw error;
-    return data || [];
+    return articles || [];
   } catch (error) {
     throw error;
   }
@@ -186,23 +167,16 @@ export async function getAllArticles() {
 // Get article by slug
 export async function getArticleBySlug(slug) {
   try {
-    const { data, error } = await supabase
-      .from('articles')
-      .select('*')
-      .eq('slug', slug)
-      .eq('published', true)
-      .single();
+    const article = await prisma.article.findFirst({
+      where: {
+        slug,
+        published: true,
+      },
+    });
 
-    if (error) {
-      if (error.code === 'PGRST116') {
-        return null;
-      }
-      throw error;
-    }
-
-    if (!data) return null;
-    const terms = await listArticleTerms(data.id).catch(() => []);
-    return { ...data, terms };
+    if (!article) return null;
+    const terms = await listArticleTerms(article.id).catch(() => []);
+    return { ...article, terms };
   } catch (error) {
     throw error;
   }
@@ -211,22 +185,13 @@ export async function getArticleBySlug(slug) {
 // Get article by ID
 export async function getArticleById(id) {
   try {
-    const { data, error } = await supabase
-      .from('articles')
-      .select('*')
-      .eq('id', id)
-      .single();
+    const article = await prisma.article.findUnique({
+      where: { id },
+    });
 
-    if (error) {
-      if (error.code === 'PGRST116') {
-        return null;
-      }
-      throw error;
-    }
-
-    if (!data) return null;
-    const terms = await listArticleTerms(data.id).catch(() => []);
-    return { ...data, terms };
+    if (!article) return null;
+    const terms = await listArticleTerms(article.id).catch(() => []);
+    return { ...article, terms };
   } catch (error) {
     throw error;
   }
@@ -235,43 +200,33 @@ export async function getArticleById(id) {
 // Create new article
 export async function createArticle(articleData) {
   try {
-    const { data, error } = await supabase
-      .from('articles')
-      .insert([
-        {
-          title: articleData.title,
-          slug: articleData.slug,
-          content: articleData.content,
-          excerpt: articleData.excerpt,
-          category: articleData.category,
-          author_id: articleData.author_id,
-          published: articleData.published || false,
-          featured_image: articleData.featured_image || null,
-          meta_title: articleData.meta_title || articleData.title,
-          meta_description: articleData.meta_description || articleData.excerpt,
-          meta_keywords: articleData.meta_keywords || null,
-          og_image: articleData.og_image || articleData.featured_image || null,
-          canonical_url: articleData.canonical_url || null,
-          focus_keyword: articleData.focus_keyword || null,
-        },
-      ])
-      .select()
-      .single();
-
-    if (error) {
-      // Handle unique constraint violation (duplicate slug)
-      if (error.code === '23505') {
-        throw new Error('Article with this slug already exists');
-      }
-      throw error;
-    }
+    const article = await prisma.article.create({
+      data: {
+        title: articleData.title,
+        slug: articleData.slug,
+        content: articleData.content,
+        excerpt: articleData.excerpt || null,
+        category: articleData.category,
+        authorId: articleData.author_id || null,
+        published: articleData.published || false,
+        featuredImage: articleData.featured_image || null,
+        metaTitle: articleData.meta_title || articleData.title || null,
+        metaDescription: articleData.meta_description || articleData.excerpt || null,
+        metaKeywords: articleData.meta_keywords || null,
+        // Note: og_image, canonical_url, focus_keyword may need to be added to schema if they exist in DB
+      },
+    });
 
     // attach terms if provided
-    if (articleData.term_ids && articleData.term_ids.length && data?.id) {
-      await setArticleTerms(data.id, articleData.term_ids);
+    if (articleData.term_ids && articleData.term_ids.length && article?.id) {
+      await setArticleTerms(article.id, articleData.term_ids);
     }
-    return data;
+    return article;
   } catch (error) {
+    // Handle unique constraint violation (duplicate slug)
+    if (error.code === 'P2002') {
+      throw new Error('Article with this slug already exists');
+    }
     throw error;
   }
 }
@@ -281,44 +236,38 @@ export async function updateArticle(id, articleData) {
   try {
     const updateData = {};
     
+    // Map snake_case to camelCase for Prisma
     if (articleData.title !== undefined) updateData.title = articleData.title;
     if (articleData.slug !== undefined) updateData.slug = articleData.slug;
     if (articleData.content !== undefined) updateData.content = articleData.content;
     if (articleData.excerpt !== undefined) updateData.excerpt = articleData.excerpt;
     if (articleData.category !== undefined) updateData.category = articleData.category;
     if (articleData.published !== undefined) updateData.published = articleData.published;
-    if (articleData.featured_image !== undefined) updateData.featured_image = articleData.featured_image;
-    if (articleData.meta_title !== undefined) updateData.meta_title = articleData.meta_title;
-    if (articleData.meta_description !== undefined) updateData.meta_description = articleData.meta_description;
-    if (articleData.meta_keywords !== undefined) updateData.meta_keywords = articleData.meta_keywords;
-    if (articleData.og_image !== undefined) updateData.og_image = articleData.og_image;
-    if (articleData.canonical_url !== undefined) updateData.canonical_url = articleData.canonical_url;
-    if (articleData.focus_keyword !== undefined) updateData.focus_keyword = articleData.focus_keyword;
+    if (articleData.featured_image !== undefined) updateData.featuredImage = articleData.featured_image;
+    if (articleData.meta_title !== undefined) updateData.metaTitle = articleData.meta_title;
+    if (articleData.meta_description !== undefined) updateData.metaDescription = articleData.meta_description;
+    if (articleData.meta_keywords !== undefined) updateData.metaKeywords = articleData.meta_keywords;
+    if (articleData.author_id !== undefined) updateData.authorId = articleData.author_id || null;
+    // Note: og_image, canonical_url, focus_keyword may need to be added to schema
 
-    const { data, error } = await supabase
-      .from('articles')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single();
+    const article = await prisma.article.update({
+      where: { id },
+      data: updateData,
+    });
 
-    if (error) {
-      if (error.code === 'PGRST116') {
-        return null;
-      }
-      if (error.code === '23505') {
-        throw new Error('Article with this slug already exists');
-      }
-      throw error;
-    }
-
-    if (!data) return null;
     if (articleData.term_ids) {
       await setArticleTerms(id, articleData.term_ids || []);
     }
     const terms = await listArticleTerms(id).catch(() => []);
-    return { ...data, terms };
+    return { ...article, terms };
   } catch (error) {
+    if (error.code === 'P2025') {
+      // Record not found
+      return null;
+    }
+    if (error.code === 'P2002') {
+      throw new Error('Article with this slug already exists');
+    }
     throw error;
   }
 }
@@ -326,14 +275,15 @@ export async function updateArticle(id, articleData) {
 // Delete article
 export async function deleteArticle(id) {
   try {
-    const { error } = await supabase
-      .from('articles')
-      .delete()
-      .eq('id', id);
-
-    if (error) throw error;
+    await prisma.article.delete({
+      where: { id },
+    });
     return true;
   } catch (error) {
+    if (error.code === 'P2025') {
+      // Record not found
+      return false;
+    }
     throw error;
   }
 }

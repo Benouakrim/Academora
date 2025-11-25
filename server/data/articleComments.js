@@ -1,28 +1,25 @@
-import supabase from '../database/supabase.js';
-
-const userSelectColumns =
-  'id, email, username, full_name, avatar_url, given_name, family_name';
+import prisma from '../database/prisma.js';
 
 function mapCommentRow(row) {
   if (!row) return row;
-  const author = row.author || row.users || null;
+  const author = row.user || null;
   return {
     id: row.id,
-    article_id: row.article_id,
-    user_id: row.user_id,
+    article_id: row.articleId,
+    user_id: row.userId,
     content: row.content,
-    created_at: row.created_at,
-    updated_at: row.updated_at,
-    is_deleted: row.is_deleted ?? false,
+    created_at: row.createdAt,
+    updated_at: row.updatedAt,
+    is_deleted: row.deletedAt ? true : false,
     author: author
       ? {
           id: author.id,
           email: author.email,
           username: author.username,
-          full_name: author.full_name,
-          avatar_url: author.avatar_url,
-          given_name: author.given_name,
-          family_name: author.family_name,
+          full_name: `${author.firstName || ''} ${author.lastName || ''}`.trim(),
+          avatar_url: author.avatarUrl,
+          given_name: author.firstName,
+          family_name: author.lastName,
         }
       : null,
   };
@@ -30,31 +27,27 @@ function mapCommentRow(row) {
 
 export async function listArticleComments(articleId) {
   try {
-    const { data, error } = await supabase
-      .from('article_comments')
-      .select(
-        `
-          id,
-          article_id,
-          user_id,
-          content,
-          created_at,
-          updated_at,
-          is_deleted,
-          author:users!article_comments_user_id_fkey (
-            ${userSelectColumns}
-          )
-        `
-      )
-      .eq('article_id', articleId)
-      .eq('is_deleted', false)
-      .order('created_at', { ascending: true });
+    const comments = await prisma.articleComment.findMany({
+      where: {
+        articleId,
+        deletedAt: null,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+            avatarUrl: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
 
-    if (error) {
-      throw error;
-    }
-
-    return (data || []).map(mapCommentRow);
+    return comments.map(mapCommentRow);
   } catch (error) {
     throw error;
   }
@@ -62,36 +55,27 @@ export async function listArticleComments(articleId) {
 
 export async function createArticleComment({ articleId, userId, content }) {
   try {
-    const insertPayload = {
-      article_id: articleId,
-      user_id: userId,
-      content,
-    };
+    const comment = await prisma.articleComment.create({
+      data: {
+        articleId,
+        userId,
+        content,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+            avatarUrl: true,
+          },
+        },
+      },
+    });
 
-    const { data, error } = await supabase
-      .from('article_comments')
-      .insert(insertPayload)
-      .select(
-        `
-          id,
-          article_id,
-          user_id,
-          content,
-          created_at,
-          updated_at,
-          is_deleted,
-          author:users!article_comments_user_id_fkey (
-            ${userSelectColumns}
-          )
-        `
-      )
-      .single();
-
-    if (error) {
-      throw error;
-    }
-
-    return mapCommentRow(data);
+    return mapCommentRow(comment);
   } catch (error) {
     throw error;
   }
@@ -99,30 +83,23 @@ export async function createArticleComment({ articleId, userId, content }) {
 
 export async function findArticleCommentById(commentId) {
   try {
-    const { data, error } = await supabase
-      .from('article_comments')
-      .select(
-        `
-          id,
-          article_id,
-          user_id,
-          content,
-          created_at,
-          updated_at,
-          is_deleted,
-          author:users!article_comments_user_id_fkey (
-            ${userSelectColumns}
-          )
-        `
-      )
-      .eq('id', commentId)
-      .maybeSingle();
+    const comment = await prisma.articleComment.findUnique({
+      where: { id: commentId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+            avatarUrl: true,
+          },
+        },
+      },
+    });
 
-    if (error) {
-      throw error;
-    }
-
-    return data ? mapCommentRow(data) : null;
+    return comment ? mapCommentRow(comment) : null;
   } catch (error) {
     throw error;
   }
@@ -130,31 +107,15 @@ export async function findArticleCommentById(commentId) {
 
 export async function softDeleteArticleComment({ commentId }) {
   try {
-    const { data, error } = await supabase
-      .from('article_comments')
-      .update({ is_deleted: true })
-      .eq('id', commentId)
-      .select(
-        `
-          id,
-          article_id,
-          user_id,
-          content,
-          created_at,
-          updated_at,
-          is_deleted
-        `
-      )
-      .single();
+    const comment = await prisma.articleComment.update({
+      where: { id: commentId },
+      data: {
+        deletedAt: new Date(),
+      },
+    });
 
-    if (error) {
-      throw error;
-    }
-
-    return mapCommentRow(data);
+    return mapCommentRow(comment);
   } catch (error) {
     throw error;
   }
 }
-
-

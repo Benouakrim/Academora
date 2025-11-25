@@ -1,4 +1,4 @@
-import { supabase } from '../database/supabase.js';
+import prisma from '../database/prisma.js';
 
 // Helper: generate a local code (fallback if DB function not available)
 const generateLocalCode = () =>
@@ -9,77 +9,84 @@ export const referrals = {
   async getOrCreateCode(userId) {
     try {
       // Check if user already has a code
-      const { data: existing, error: existError } = await supabase
-        .from('referral_codes')
-        .select('*')
-        .eq('user_id', userId)
-        .maybeSingle();
+      const existing = await prisma.referralCode.findUnique({
+        where: { userId },
+      });
 
-      if (!existError && existing) {
+      if (existing) {
         return existing;
       }
 
-      // Try DB function first
-      let code = null;
-      try {
-        const { data: fn } = await supabase.rpc('generate_referral_code', { p_user_id: userId });
-        if (fn) code = typeof fn === 'string' ? fn : fn.code || null;
-      } catch {}
-      if (!code) code = generateLocalCode();
+      // Generate code locally (no DB function in Prisma)
+      let code = generateLocalCode();
 
       // Fetch expiry days setting
-      let expires_at = null;
+      let expiresAt = null;
       try {
-        const { data: setting } = await supabase
-          .from('referral_settings')
-          .select('setting_value')
-          .eq('setting_key', 'referral_expiry_days')
-          .maybeSingle();
-        const expiryDays = parseInt(setting?.setting_value || '365', 10);
+        const setting = await prisma.referralSetting.findUnique({
+          where: { settingKey: 'referral_expiry_days' },
+        });
+        const expiryDays = parseInt(setting?.settingValue || '365', 10);
         if (expiryDays > 0) {
           const d = new Date();
           d.setDate(d.getDate() + expiryDays);
-          expires_at = d.toISOString();
+          expiresAt = d;
         }
       } catch {}
 
       // Insert new code (retry once on conflict)
-      const insertPayload = { user_id: userId, code, expires_at };
       let inserted = null;
       for (let i = 0; i < 2; i++) {
-        const { data, error } = await supabase
-          .from('referral_codes')
-          .insert(insertPayload)
-          .select('*')
-          .single();
-        if (!error && data) { inserted = data; break; }
-        // If conflict on code, regenerate and retry
-        if (error && String(error.message || '').includes('duplicate')) {
-          insertPayload.code = generateLocalCode();
-          continue;
+        try {
+          inserted = await prisma.referralCode.create({
+            data: {
+              userId,
+              code,
+              expiresAt,
+              active: true,
+            },
+          });
+          break;
+        } catch (error) {
+          // If conflict on code, regenerate and retry
+          if (error.code === 'P2002') {
+            code = generateLocalCode();
+            continue;
+          }
+          throw error;
         }
-        if (error) throw error;
       }
-      return inserted || { code: insertPayload.code, user_id: userId, expires_at };
+      return inserted || { code, userId, expiresAt };
     } catch (error) {
       console.error('Error creating referral code:', error);
       // Return a safe fallback to avoid breaking the route
-      return { code: generateLocalCode(), user_id: userId, expires_at: null };
+      return { code: generateLocalCode(), userId, expiresAt: null };
     }
   },
 
   // Validate referral code
   async validateCode(code) {
     try {
-      const { data, error } = await supabase
-        .from('referral_codes')
-        .select('*, users!inner(email, full_name)')
-        .eq('code', code)
-        .eq('active', true)
-        .or('expires_at.is.null,expires_at.gt.' + new Date().toISOString())
-        .maybeSingle();
-      if (error) return null;
-      return data || null;
+      const referralCode = await prisma.referralCode.findFirst({
+        where: {
+          code,
+          active: true,
+          OR: [
+            { expiresAt: null },
+            { expiresAt: { gt: new Date() } },
+          ],
+        },
+        include: {
+          user: {
+            select: {
+              email: true,
+              firstName: true,
+              lastName: true,
+            },
+          },
+        },
+      });
+      return referralCode || null;
     } catch (error) {
       console.error('Error validating referral code:', error);
       return null;
@@ -89,14 +96,22 @@ export const referrals = {
   // Create referral relationship
   async createReferral(referrerUserId, referredUserId, code) {
     try {
-      const { data, error } = await supabase
-        .from('referrals')
-        .insert([{ referrer_id: referrerUserId, referred_id: referredUserId, referral_code: code, status: 'pending' }])
-        .select('*')
-        .single();
-      if (error) throw error;
-      await supabase.from('users').update({ referred_by_code: code }).eq('id', referredUserId);
-      return data;
+      const referral = await prisma.referral.create({
+        data: {
+          referrerId: referrerUserId,
+          referredId: referredUserId,
+          referralCode: code,
+          status: 'pending',
+        },
+      });
+      
+      // Update user's referred_by_code
+      await prisma.user.update({
+        where: { id: referredUserId },
+        data: { referredByCode: code },
+      });
+      
+      return referral;
     } catch (error) {
       console.error('Error creating referral:', error);
       return null;
@@ -106,16 +121,25 @@ export const referrals = {
   // Mark referral as completed (e.g., user verified email or completed profile)
   async completeReferral(referredUserId) {
     try {
-      const { data, error } = await supabase
-        .from('referrals')
-        .update({ status: 'completed', completed_at: new Date().toISOString() })
-        .eq('referred_id', referredUserId)
-        .eq('status', 'pending')
-        .select('*')
-        .maybeSingle();
-      if (error) return null;
+      const referral = await prisma.referral.findFirst({
+        where: {
+          referredId: referredUserId,
+          status: 'pending',
+        },
+      });
+      
+      if (!referral) return null;
+      
+      const updated = await prisma.referral.update({
+        where: { id: referral.id },
+        data: {
+          status: 'completed',
+          completedAt: new Date(),
+        },
+      });
+      
       // Optionally, reward application could be handled via DB trigger or separate service
-      return data || null;
+      return updated;
     } catch (error) {
       console.error('Error completing referral:', error);
       return null;
@@ -125,22 +149,45 @@ export const referrals = {
   // Get user's referral stats
   async getUserStats(userId) {
     try {
-      // Minimal implementation to unblock UI
-      const { data: code } = await supabase
-        .from('referral_codes')
-        .select('code, total_uses, created_at, expires_at')
-        .eq('user_id', userId)
-        .maybeSingle();
+      const code = await prisma.referralCode.findUnique({
+        where: { userId },
+        select: {
+          code: true,
+          totalUses: true,
+          createdAt: true,
+          expiresAt: true,
+        },
+      });
+      
       if (!code) return null;
-      // For now, return zeros for counts; can be expanded with RPC or views
+      
+      // Count referrals
+      const totalReferrals = await prisma.referral.count({
+        where: { referrerId: userId },
+      });
+      
+      const pendingReferrals = await prisma.referral.count({
+        where: {
+          referrerId: userId,
+          status: 'pending',
+        },
+      });
+      
+      const completedReferrals = await prisma.referral.count({
+        where: {
+          referrerId: userId,
+          status: 'completed',
+        },
+      });
+      
       return {
         code: code.code,
-        total_uses: code.total_uses || 0,
-        code_created_at: code.created_at,
-        expires_at: code.expires_at,
-        total_referrals: 0,
-        pending_referrals: 0,
-        completed_referrals: 0,
+        total_uses: code.totalUses || 0,
+        code_created_at: code.createdAt,
+        expires_at: code.expiresAt,
+        total_referrals: totalReferrals,
+        pending_referrals: pendingReferrals,
+        completed_referrals: completedReferrals,
         rewarded_referrals: 0,
         total_rewards: 0,
       };
@@ -153,24 +200,34 @@ export const referrals = {
   // Get user's referred users
   async getUserReferrals(userId, limit = 50, offset = 0) {
     try {
-      const { data, error } = await supabase
-        .from('referrals')
-        .select('id, referred_id, status, created_at, completed_at, referral_code')
-        .eq('referrer_id', userId)
-        .order('created_at', { ascending: false })
-        .range(offset, offset + limit - 1);
-      if (error) return [];
-      // Note: page expects referred_email
-      if (!data) return [];
-      // Join emails minimally
-      const referrals = data.map(r => ({
+      const referrals = await prisma.referral.findMany({
+        where: { referrerId: userId },
+        select: {
+          id: true,
+          referredId: true,
+          status: true,
+          createdAt: true,
+          completedAt: true,
+          referralCode: true,
+          referred: {
+            select: {
+              email: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: offset,
+        take: limit,
+      });
+      
+      // Map to expected format
+      return referrals.map(r => ({
         id: r.id,
-        referred_email: '',
+        referred_email: r.referred?.email || '',
         status: r.status,
-        created_at: r.created_at,
-        completed_at: r.completed_at,
+        created_at: r.createdAt,
+        completed_at: r.completedAt,
       }));
-      return referrals;
     } catch (error) {
       console.error('Error fetching user referrals:', error);
       return [];
@@ -180,18 +237,29 @@ export const referrals = {
   // Get user's rewards
   async getUserRewards(userId) {
     try {
-      const { data, error } = await supabase
-        .from('referral_rewards')
-        .select('id, reward_type, reward_value, applied_at, created_at')
-        .or(`referrer_id.eq.${userId},referred_id.eq.${userId}`)
-        .order('created_at', { ascending: false });
-      if (error || !data) return [];
-      return data.map(r => ({
+      const rewards = await prisma.referralReward.findMany({
+        where: {
+          OR: [
+            { referrerId: userId },
+            { referredId: userId },
+          ],
+        },
+        select: {
+          id: true,
+          rewardType: true,
+          rewardValue: true,
+          appliedAt: true,
+          createdAt: true,
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+      
+      return rewards.map(r => ({
         id: r.id,
-        reward_type: r.reward_type,
-        reward_value: r.reward_value,
+        reward_type: r.rewardType,
+        reward_value: r.rewardValue,
         description: '',
-        applied_at: r.applied_at || r.created_at,
+        applied_at: r.appliedAt || r.createdAt,
       }));
     } catch (error) {
       console.error('Error fetching user rewards:', error);

@@ -1,4 +1,4 @@
-import supabase from '../database/supabase.js';
+import pool from '../database/pool.js';
 import bcrypt from 'bcrypt';
 import { getUserOnboarding } from './onboarding.js';
 
@@ -12,8 +12,8 @@ function generateBaseUsername(email) {
 async function ensureUniqueUsername(candidate) {
   let username = candidate
   for (let i = 0; i < 3; i++) {
-    const { data, error } = await supabase.from('users').select('id').eq('username', username).maybeSingle()
-    if (!error && !data) return username
+    const result = await pool.query('SELECT id FROM users WHERE username = $1', [username]);
+    if (result.rows.length === 0) return username;
     username = `${candidate}-${Math.random().toString(36).slice(2, 6)}`
   }
   return `${candidate}-${Date.now().toString().slice(-4)}`
@@ -61,141 +61,222 @@ export async function createUser(optionsOrEmail, maybePassword, maybeRole = 'use
   // Determine default plan (free)
   let planId = null;
   try {
-    const { data: planData, error: planError } = await supabase
-      .from('plans')
-      .select('id')
-      .eq('key', 'free')
-      .maybeSingle();
-    if (planError) {
-      console.error('Failed to fetch free plan for new user:', planError);
+    const planResult = await pool.query('SELECT id FROM plans WHERE key = $1', ['free']);
+    if (planResult.rows.length > 0) {
+      planId = planResult.rows[0].id;
     }
-    planId = planData?.id || null;
   } catch (planLookupError) {
     console.error('Exception while fetching free plan:', planLookupError);
   }
 
-  // Insert user into Supabase
-  const { data, error } = await supabase
-    .from('users')
-    .insert([
-      {
-        email,
-        phone: phone ? String(phone).trim() : null,
-        password: hashedPassword,
-        role: role || 'user', // Default to 'user' role
-        username,
-        plan_id: planId,
-        account_type: accountType || null,
-        referred_by_code: referredByCode || null,
-        given_name: givenName || null,
-        family_name: familyName || null,
-        date_of_birth: dateOfBirth || null,
-        full_name: [givenName, familyName].filter(Boolean).join(' ') || null,
-        persona_role: personaRole || null,
-        focus_area: focusArea || null,
-        primary_goal: primaryGoal || null,
-        timeline: timeline || null,
-        organization_name: organizationName || null,
-        organization_type: organizationType || null,
-      },
-    ])
-    .select(
-      'id, email, role, plan_id, subscription_status, created_at, username, account_type, given_name, family_name, date_of_birth, phone, full_name, persona_role, focus_area, primary_goal, timeline, organization_name, organization_type'
-    )
-    .single();
+  // Insert user into database
+  try {
+    const result = await pool.query(
+      `INSERT INTO users (email, password, role, username, plan_id, phone, account_type, first_name, last_name, status, email_verified)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+       RETURNING id, email, role, plan_id as "planId", subscription_status as "subscriptionStatus", 
+                 created_at as "createdAt", username, account_type as "accountType", 
+                 first_name as "firstName", last_name as "lastName", phone`,
+      [email, hashedPassword, role || 'user', username, planId, phone || null, accountType || null, 
+       givenName || null, familyName || null, 'active', false]
+    );
 
-  if (error) {
+    return result.rows[0];
+  } catch (error) {
     // Handle unique constraint violation (duplicate email)
     if (error.code === '23505') {
       throw new Error('User already exists');
     }
     throw error;
   }
-
-  return data;
 }
 
 export async function listUsers() {
-  const { data, error } = await supabase
-    .from('users')
-    .select('id, email, role, created_at, username, full_name, avatar_url, last_seen, account_type')
-    .order('created_at', { ascending: false });
-
-  if (error) throw error;
-  return data || [];
+  try {
+    const result = await pool.query(
+      `SELECT id, email, role, created_at as "createdAt", username, avatar_url as "avatarUrl", 
+              account_type as "accountType"
+       FROM users 
+       ORDER BY created_at DESC`
+    );
+    return result.rows;
+  } catch (error) {
+    throw error;
+  }
 }
 
 export async function findUserByEmail(email) {
-  const { data, error } = await supabase
-    .from('users')
-    .select(
-      'id, email, password, role, plan_id, subscription_status, created_at, username, phone, account_type, given_name, family_name, date_of_birth'
-    )
-    .eq('email', email)
-    .single();
-
-  if (error) {
-    // If no rows found, return null
-    if (error.code === 'PGRST116') {
-      return null;
-    }
+  try {
+    const result = await pool.query(
+      `SELECT id, email, password, role, plan_id as "planId", subscription_status as "subscriptionStatus",
+              created_at as "createdAt", username, phone, account_type as "accountType",
+              first_name as "firstName", last_name as "lastName", clerk_id as "clerkId"
+       FROM users WHERE email = $1`,
+      [email]
+    );
+    return result.rows[0] || null;
+  } catch (error) {
     throw error;
   }
+}
 
-  return data || null;
+export async function findUserByClerkId(clerkId) {
+  try {
+    const result = await pool.query(
+      `SELECT id, email, password, role, plan_id as "planId", subscription_status as "subscriptionStatus",
+              created_at as "createdAt", username, phone, account_type as "accountType",
+              first_name as "firstName", last_name as "lastName", clerk_id as "clerkId", avatar_url as "avatarUrl"
+       FROM users WHERE clerk_id = $1`,
+      [clerkId]
+    );
+    return result.rows[0] || null;
+  } catch (error) {
+    throw error;
+  }
+}
+
+// Create or update user from Clerk webhook
+export async function createOrUpdateUserFromClerk(clerkUser) {
+  try {
+    const email = clerkUser.email_addresses?.[0]?.email_address;
+    const firstName = clerkUser.first_name;
+    const lastName = clerkUser.last_name;
+    const clerkId = clerkUser.id;
+    const imageUrl = clerkUser.image_url;
+    const emailVerified = clerkUser.email_addresses?.[0]?.verification?.status === 'verified';
+
+    if (!email || !clerkId) {
+      throw new Error('Email and Clerk ID are required');
+    }
+
+    // Check if user exists by clerkId
+    let user = await findUserByClerkId(clerkId);
+    
+    if (user) {
+      // Update existing user
+      const result = await pool.query(
+        `UPDATE users 
+         SET email = $1, first_name = $2, last_name = $3, avatar_url = $4, email_verified = $5, updated_at = CURRENT_TIMESTAMP
+         WHERE clerk_id = $6
+         RETURNING id, email, role, plan_id as "planId", subscription_status as "subscriptionStatus",
+                   created_at as "createdAt", username, phone, account_type as "accountType",
+                   first_name as "firstName", last_name as "lastName", clerk_id as "clerkId", avatar_url as "avatarUrl"`,
+        [email, firstName || null, lastName || null, imageUrl || null, emailVerified, clerkId]
+      );
+      user = result.rows[0];
+    } else {
+      // Check if user exists by email (for migration)
+      const existingUser = await findUserByEmail(email);
+      
+      if (existingUser) {
+        // Link existing user to Clerk
+        const result = await pool.query(
+          `UPDATE users 
+           SET clerk_id = $1, first_name = COALESCE($2, first_name), last_name = COALESCE($3, last_name), 
+               avatar_url = COALESCE($4, avatar_url), email_verified = $5, updated_at = CURRENT_TIMESTAMP
+           WHERE email = $6
+           RETURNING id, email, role, plan_id as "planId", subscription_status as "subscriptionStatus",
+                     created_at as "createdAt", username, phone, account_type as "accountType",
+                     first_name as "firstName", last_name as "lastName", clerk_id as "clerkId", avatar_url as "avatarUrl"`,
+          [clerkId, firstName || null, lastName || null, imageUrl || null, emailVerified, email]
+        );
+        user = result.rows[0];
+      } else {
+        // Create new user
+        const base = generateBaseUsername(email);
+        const username = await ensureUniqueUsername(base);
+
+        // Determine default plan (free)
+        let planId = null;
+        try {
+          const planResult = await pool.query('SELECT id FROM plans WHERE key = $1', ['free']);
+          if (planResult.rows.length > 0) {
+            planId = planResult.rows[0].id;
+          }
+        } catch (planLookupError) {
+          console.error('Exception while fetching free plan:', planLookupError);
+        }
+
+        const result = await pool.query(
+          `INSERT INTO users (email, clerk_id, password, role, username, plan_id, first_name, last_name, avatar_url, email_verified, status)
+           VALUES ($1, $2, NULL, $3, $4, $5, $6, $7, $8, $9, $10)
+           RETURNING id, email, role, plan_id as "planId", subscription_status as "subscriptionStatus",
+                     created_at as "createdAt", username, phone, account_type as "accountType",
+                     first_name as "firstName", last_name as "lastName", clerk_id as "clerkId", avatar_url as "avatarUrl"`,
+          [email, clerkId, 'user', username, planId, firstName || null, lastName || null, 
+           imageUrl || null, emailVerified, 'active']
+        );
+        user = result.rows[0];
+      }
+    }
+
+    return user;
+  } catch (error) {
+    console.error('Error in createOrUpdateUserFromClerk:', error);
+    throw error;
+  }
 }
 
 export async function findUserById(id) {
-  const { data, error } = await supabase
-    .from('users')
-    .select(
-      'id, email, role, plan_id, subscription_status, created_at, username, full_name, avatar_url, account_type, given_name, family_name, date_of_birth, phone'
-    )
-    .eq('id', id)
-    .single();
-
-  if (error) {
-    if (error.code === 'PGRST116') {
-      return null;
-    }
+  try {
+    const result = await pool.query(
+      `SELECT id, email, role, plan_id as "planId", subscription_status as "subscriptionStatus",
+              created_at as "createdAt", username, avatar_url as "avatarUrl", account_type as "accountType",
+              first_name as "firstName", last_name as "lastName", phone
+       FROM users WHERE id = $1`,
+      [id]
+    );
+    return result.rows[0] || null;
+  } catch (error) {
     throw error;
   }
-
-  return data || null;
 }
 
 export async function verifyPassword(user, password) {
+  if (!user.password) {
+    return false; // Clerk users don't have passwords
+  }
   return await bcrypt.compare(password, user.password);
 }
 
 export async function updatePasswordByEmail(email, newPassword) {
   const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-  const { data, error } = await supabase
-    .from('users')
-    .update({ password: hashedPassword })
-    .eq('email', email)
-    .select('id, email, role, created_at')
-    .single();
-
-  if (error) throw error;
-  return data;
+  try {
+    const result = await pool.query(
+      `UPDATE users SET password = $1, updated_at = CURRENT_TIMESTAMP
+       WHERE email = $2
+       RETURNING id, email, role, created_at as "createdAt"`,
+      [hashedPassword, email]
+    );
+    
+    if (result.rows.length === 0) {
+      throw new Error('User not found');
+    }
+    
+    return result.rows[0];
+  } catch (error) {
+    if (error.message === 'User not found') {
+      throw error;
+    }
+    throw error;
+  }
 }
 
 export async function updatePasswordById(userId, currentPassword, newPassword) {
-  const user = await findUserById(userId);
-  if (!user) {
+  // Get full user data including password
+  const result = await pool.query(
+    `SELECT id, email, password, role, created_at as "createdAt", subscription_status as "subscriptionStatus",
+            phone, bio, avatar_url as "avatarUrl"
+     FROM users WHERE id = $1`,
+    [userId]
+  );
+
+  if (result.rows.length === 0) {
     throw new Error('User not found');
   }
 
-  // Get full user data including password
-  const { data: fullUser, error: fetchError } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', userId)
-    .single();
-
-  if (fetchError) throw fetchError;
+  const fullUser = result.rows[0];
 
   // Verify current password
   const isValid = await verifyPassword(fullUser, currentPassword);
@@ -205,97 +286,108 @@ export async function updatePasswordById(userId, currentPassword, newPassword) {
 
   // Update password
   const hashedPassword = await bcrypt.hash(newPassword, 10);
-  const { data, error } = await supabase
-    .from('users')
-    .update({ password: hashedPassword })
-    .eq('id', userId)
-    .select('id, email, role, created_at, subscription_status, full_name, phone, bio, avatar_url')
-    .single();
-
-  if (error) throw error;
-  return data;
+  try {
+    const updateResult = await pool.query(
+      `UPDATE users SET password = $1, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $2
+       RETURNING id, email, role, created_at as "createdAt", subscription_status as "subscriptionStatus",
+                 phone, bio, avatar_url as "avatarUrl"`,
+      [hashedPassword, userId]
+    );
+    return updateResult.rows[0];
+  } catch (error) {
+    throw error;
+  }
 }
 
 export async function updateUserProfile(userId, updates) {
-  const updateData = {};
-  if (updates.email !== undefined) updateData.email = updates.email;
-  if (updates.full_name !== undefined) updateData.full_name = updates.full_name || null;
-  if (updates.given_name !== undefined) updateData.given_name = updates.given_name || null;
-  if (updates.family_name !== undefined) updateData.family_name = updates.family_name || null;
-  if (updates.date_of_birth !== undefined) updateData.date_of_birth = updates.date_of_birth || null;
-  if (updates.username !== undefined) updateData.username = updates.username || null;
-  if (updates.title !== undefined) updateData.title = updates.title || null;
-  if (updates.headline !== undefined) updateData.headline = updates.headline || null;
-  if (updates.location !== undefined) updateData.location = updates.location || null;
-  if (updates.phone !== undefined) updateData.phone = updates.phone || null;
-  if (updates.bio !== undefined) updateData.bio = updates.bio || null;
-  if (updates.avatar_url !== undefined) updateData.avatar_url = updates.avatar_url || null;
-  if (updates.website_url !== undefined) updateData.website_url = updates.website_url || null;
-  if (updates.linkedin_url !== undefined) updateData.linkedin_url = updates.linkedin_url || null;
-  if (updates.github_url !== undefined) updateData.github_url = updates.github_url || null;
-  if (updates.twitter_url !== undefined) updateData.twitter_url = updates.twitter_url || null;
-  if (updates.portfolio_url !== undefined) updateData.portfolio_url = updates.portfolio_url || null;
-  if (updates.subscription_status !== undefined) updateData.subscription_status = updates.subscription_status;
-  if (updates.subscription_expires_at !== undefined) updateData.subscription_expires_at = updates.subscription_expires_at || null;
-  if (updates.account_type !== undefined) updateData.account_type = updates.account_type || null;
-  if (updates.persona_role !== undefined) updateData.persona_role = updates.persona_role || null;
-  if (updates.focus_area !== undefined) updateData.focus_area = updates.focus_area || null;
-  if (updates.primary_goal !== undefined) updateData.primary_goal = updates.primary_goal || null;
-  if (updates.timeline !== undefined) updateData.timeline = updates.timeline || null;
-  if (updates.organization_name !== undefined) updateData.organization_name = updates.organization_name || null;
-  if (updates.organization_type !== undefined) updateData.organization_type = updates.organization_type || null;
-  // privacy
-  if (updates.is_profile_public !== undefined) updateData.is_profile_public = !!updates.is_profile_public;
-  if (updates.show_email !== undefined) updateData.show_email = !!updates.show_email;
-  if (updates.show_saved !== undefined) updateData.show_saved = !!updates.show_saved;
-  if (updates.show_reviews !== undefined) updateData.show_reviews = !!updates.show_reviews;
-  if (updates.show_socials !== undefined) updateData.show_socials = !!updates.show_socials;
-  if (updates.show_activity !== undefined) updateData.show_activity = !!updates.show_activity;
+  const updateFields = [];
+  const updateValues = [];
+  let paramIndex = 1;
 
-  if (
-    (updates.given_name !== undefined || updates.family_name !== undefined) &&
-    updates.full_name === undefined
-  ) {
-    const composedName = [updates.given_name ?? null, updates.family_name ?? null]
-      .filter((part) => typeof part === 'string' && part.trim().length > 0)
-      .join(' ');
-    updateData.full_name = composedName || null;
+  // Map fields to database column names
+  if (updates.email !== undefined) {
+    updateFields.push(`email = $${paramIndex++}`);
+    updateValues.push(updates.email);
+  }
+  if (updates.username !== undefined) {
+    updateFields.push(`username = $${paramIndex++}`);
+    updateValues.push(updates.username || null);
+  }
+  if (updates.firstName !== undefined || updates.given_name !== undefined) {
+    updateFields.push(`first_name = $${paramIndex++}`);
+    updateValues.push(updates.firstName || updates.given_name || null);
+  }
+  if (updates.lastName !== undefined || updates.family_name !== undefined) {
+    updateFields.push(`last_name = $${paramIndex++}`);
+    updateValues.push(updates.lastName || updates.family_name || null);
+  }
+  if (updates.phone !== undefined) {
+    updateFields.push(`phone = $${paramIndex++}`);
+    updateValues.push(updates.phone || null);
+  }
+  if (updates.bio !== undefined) {
+    updateFields.push(`bio = $${paramIndex++}`);
+    updateValues.push(updates.bio || null);
+  }
+  if (updates.avatarUrl !== undefined || updates.avatar_url !== undefined) {
+    updateFields.push(`avatar_url = $${paramIndex++}`);
+    updateValues.push(updates.avatarUrl || updates.avatar_url || null);
+  }
+  if (updates.subscriptionStatus !== undefined || updates.subscription_status !== undefined) {
+    updateFields.push(`subscription_status = $${paramIndex++}`);
+    updateValues.push(updates.subscriptionStatus || updates.subscription_status);
+  }
+  if (updates.accountType !== undefined || updates.account_type !== undefined) {
+    updateFields.push(`account_type = $${paramIndex++}`);
+    updateValues.push(updates.accountType || updates.account_type || null);
   }
 
-  const { data, error } = await supabase
-    .from('users')
-    .update(updateData)
-    .eq('id', userId)
-    .select(
-      'id, email, role, created_at, subscription_status, subscription_expires_at, full_name, given_name, family_name, date_of_birth, username, title, headline, location, phone, bio, avatar_url, website_url, linkedin_url, github_url, twitter_url, portfolio_url, is_profile_public, show_email, show_saved, show_reviews, show_socials, show_activity, account_type, persona_role, focus_area, primary_goal, timeline, organization_name, organization_type'
-    )
-    .single();
+  if (updateFields.length === 0) {
+    throw new Error('No fields to update');
+  }
 
-  if (error) {
+  updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
+  updateValues.push(userId);
+
+  try {
+    const result = await pool.query(
+      `UPDATE users SET ${updateFields.join(', ')}
+       WHERE id = $${paramIndex}
+       RETURNING id, email, role, created_at as "createdAt", subscription_status as "subscriptionStatus",
+                 username, first_name as "firstName", last_name as "lastName", phone, bio, avatar_url as "avatarUrl",
+                 account_type as "accountType"`,
+      updateValues
+    );
+
+    if (result.rows.length === 0) {
+      throw new Error('User not found');
+    }
+
+    return result.rows[0];
+  } catch (error) {
     if (error.code === '23505') {
       throw new Error('Email already exists');
     }
     throw error;
   }
-  return data;
 }
 
 export async function getUserProfile(userId) {
   try {
-    const { data, error } = await supabase
-      .from('users')
-      .select(
-        'id, email, role, created_at, subscription_status, subscription_expires_at, full_name, given_name, family_name, date_of_birth, username, title, headline, location, phone, bio, avatar_url, website_url, linkedin_url, github_url, twitter_url, portfolio_url, is_profile_public, show_email, show_saved, show_reviews, show_socials, show_activity, account_type, persona_role, focus_area, primary_goal, timeline, organization_name, organization_type'
-      )
-      .eq('id', userId)
-      .single();
+    const result = await pool.query(
+      `SELECT id, email, role, created_at as "createdAt", subscription_status as "subscriptionStatus",
+              username, first_name as "firstName", last_name as "lastName", phone, bio, avatar_url as "avatarUrl",
+              account_type as "accountType"
+       FROM users WHERE id = $1`,
+      [userId]
+    );
 
-    if (error) {
-      if (error.code === 'PGRST116') return null;
-      throw error;
-    }
+    if (result.rows.length === 0) return null;
+
+    const user = result.rows[0];
     const onboarding = await getUserOnboarding(userId);
-    return { ...data, onboarding };
+    return { ...user, onboarding };
   } catch (error) {
     throw error;
   }

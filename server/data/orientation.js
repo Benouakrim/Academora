@@ -1,15 +1,12 @@
-import supabase from '../database/supabase.js';
+import prisma from '../database/prisma.js';
 
 // Get all resources
 export async function getResources() {
   try {
-    const { data, error } = await supabase
-      .from('orientation_resources')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data || [];
+    const resources = await prisma.orientationResource.findMany({
+      orderBy: { createdAt: 'desc' },
+    });
+    return resources || [];
   } catch (error) {
     throw error;
   }
@@ -18,15 +15,14 @@ export async function getResources() {
 // Get resources by category
 export async function getResourcesByCategory(category) {
   try {
-    const { data, error } = await supabase
-      .from('orientation_resources')
-      .select('*')
-      .eq('category', category)
-      .order('featured', { ascending: false })
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data || [];
+    const resources = await prisma.orientationResource.findMany({
+      where: { category },
+      orderBy: [
+        { featured: 'desc' },
+        { createdAt: 'desc' },
+      ],
+    });
+    return resources || [];
   } catch (error) {
     throw error;
   }
@@ -35,21 +31,14 @@ export async function getResourcesByCategory(category) {
 // Get resource by slug and category
 export async function getResourceBySlug(category, slug) {
   try {
-    const { data, error } = await supabase
-      .from('orientation_resources')
-      .select('*')
-      .eq('category', category)
-      .eq('slug', slug)
-      .single();
+    const resource = await prisma.orientationResource.findFirst({
+      where: {
+        category,
+        slug,
+      },
+    });
 
-    if (error) {
-      if (error.code === 'PGRST116') {
-        return null;
-      }
-      throw error;
-    }
-
-    return data || null;
+    return resource || null;
   } catch (error) {
     throw error;
   }

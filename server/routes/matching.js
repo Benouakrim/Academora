@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import supabase from '../database/supabase.js';
+import pool from '../database/pool.js';
 import { getMatchingUniversities } from '../services/matchingService.js';
 import { parseUserToken } from '../middleware/auth.js';
 import { checkFeatureAccess, logUsage } from '../middleware/accessControl.js';
@@ -22,14 +22,16 @@ router.post(
       // Fetch user preference weights if available to inform scoring
       const userId = req.user?.id;
       if (userId) {
-        const { data, error } = await supabase
-          .from('user_preferences')
-          .select('weight_tuition, weight_location, weight_ranking, weight_program, weight_language')
-          .eq('user_id', userId)
-          .maybeSingle();
-
-        if (!error && data) {
-          criteria._weights = data;
+        try {
+          const result = await pool.query(
+            'SELECT weight_tuition, weight_location, weight_ranking, weight_program, weight_language FROM user_preferences WHERE user_id = $1',
+            [userId]
+          );
+          if (result.rows[0]) {
+            criteria._weights = result.rows[0];
+          }
+        } catch (error) {
+          console.error('Error fetching user preferences:', error);
         }
       }
 

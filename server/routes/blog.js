@@ -16,7 +16,6 @@ import {
   getArticlePerformanceComparison
 } from '../data/articleViews.js';
 import { parseUserToken, requireUser } from '../middleware/auth.js';
-import { checkFeatureAccess, logUsage } from '../middleware/accessControl.js';
 import {
   listArticleComments,
   createArticleComment,
@@ -26,15 +25,13 @@ import {
 
 const router = express.Router();
 
-const ensurePremiumAccess = checkFeatureAccess('view-premium-content');
-const logPremiumUsage = logUsage('view-premium-content');
-
 // Simple in-memory cache for list endpoint
 let listCache = { data: null, at: 0 };
 const LIST_TTL_MS = 60 * 1000;
 
 // Get all published articles (optionally filtered by category)
 router.get('/', async (req, res) => {
+  console.log('📝 Blog route hit, query:', req.query);
   try {
     const { category } = req.query;
     const now = Date.now();
@@ -46,6 +43,7 @@ router.get('/', async (req, res) => {
     }
     
     const articles = await getArticles(category || null);
+    console.log('✅ Blog route success, articles:', articles.length);
     
     // Cache only if no category filter
     if (!category) {
@@ -54,6 +52,7 @@ router.get('/', async (req, res) => {
     
     res.json(articles);
   } catch (error) {
+    console.error('❌ Blog route error:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -289,46 +288,22 @@ router.get('/latest', async (req, res) => {
   }
 });
 
-// Get article by slug
-router.get(
-  '/:slug',
-  parseUserToken,
-  async (req, res, next) => {
-    try {
-      const { slug } = req.params;
-      const article = await getArticleBySlug(slug);
+// Get article by slug - PUBLIC (no auth required)
+router.get('/:slug', async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const article = await getArticleBySlug(slug);
 
-      if (!article) {
-        return res.status(404).json({ error: 'Article not found' });
-      }
-
-      const isPremium = Boolean(article.is_premium ?? article.premium);
-      req.article = { ...article, is_premium: isPremium };
-
-      if (!isPremium) {
-        return next();
-      }
-
-      ensurePremiumAccess(req, res, (err) => {
-        if (err) {
-          return next(err);
-        }
-        logPremiumUsage(req, res, next);
-      });
-    } catch (error) {
-      console.error('Error fetching article:', error);
-      if (!res.headersSent) {
-        res.status(500).json({ error: 'Failed to fetch article.' });
-      }
+    if (!article) {
+      return res.status(404).json({ error: 'Article not found' });
     }
-  },
-  (req, res) => {
-    if (!req.article) {
-      return res.status(500).json({ error: 'Article payload missing.' });
-    }
-    res.json(req.article);
+
+    res.json(article);
+  } catch (error) {
+    console.error('Error fetching article:', error);
+    res.status(500).json({ error: 'Failed to fetch article.' });
   }
-);
+});
 
 export default router;
 

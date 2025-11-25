@@ -147,19 +147,27 @@ router.post('/login', validate(loginSchema), async (req, res) => {
   }
 });
 
-// Get current user (protected route)
-router.get('/me', parseUserToken, requireUser, async (req, res) => {
+// Get current user (protected route) - Now uses Clerk
+router.get('/me', requireUser, async (req, res) => {
   try {
-    const user = await findUserByEmail(req.user.email);
+    const { getCurrentUser } = await import('../middleware/auth.js');
+    const user = await getCurrentUser(req);
+    
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
+    
     res.json({
       id: user.id,
       email: user.email,
       role: user.role,
-      plan_id: user.plan_id,
-      subscription_status: user.subscription_status,
+      plan_id: user.planId,
+      subscription_status: user.subscriptionStatus,
+      clerkId: user.clerkId,
+      username: user.username,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      avatarUrl: user.avatarUrl,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });

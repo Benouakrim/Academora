@@ -5,7 +5,8 @@ import {
   Gift, LayoutDashboard, GitCompare, Users, Building2, BarChart3, Sliders, UserCog
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { authAPI, getCurrentUser, staticPagesAPI, notificationsAPI } from '../lib/api'
+import { useUser, useAuth, UserButton } from '@clerk/clerk-react'
+import { authAPI, staticPagesAPI, notificationsAPI } from '../lib/api'
 import LanguageSwitcher from './LanguageSwitcher'
 import { motion, AnimatePresence } from 'framer-motion'
 import LogoutConfirmDialog from './LogoutConfirmDialog'
@@ -59,26 +60,62 @@ const PERMANENT_FEATURES = [
 
 export default function Navbar({ onAdminMenuToggle, showAdminMenu, onUserMenuToggle, showUserMenu }: NavbarProps = {}) {
   const { t } = useTranslation()
+  const { user: clerkUser, isLoaded: isUserLoaded } = useUser()
+  const { getToken } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
   const [isDashboardDropdownOpen, setIsDashboardDropdownOpen] = useState(false)
   const [isAdminDropdownOpen, setIsAdminDropdownOpen] = useState(false)
   const [isMobileDashboardOpen, setIsMobileDashboardOpen] = useState(false)
   const [isMobileAdminOpen, setIsMobileAdminOpen] = useState(false)
-  const [user, setUser] = useState<User | null>(null)
+  const [dbUser, setDbUser] = useState<User | null>(null) // Database user (for role info)
   const [navbarPages, setNavbarPages] = useState<StaticPage[]>([])
   const [unreadCount, setUnreadCount] = useState<number>(0)
   const [showNotifs, setShowNotifs] = useState(false)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const navigate = useNavigate()
-  const isAdminUser = user?.role === 'admin'
-  const canToggleUserMenu = !!user && !isAdminUser
+  const isAdminUser = dbUser?.role === 'admin'
+  const canToggleUserMenu = !!clerkUser && !isAdminUser
+
+  // Fetch database user info when Clerk user is loaded
+  useEffect(() => {
+    const fetchDbUser = async () => {
+      if (!clerkUser || !isUserLoaded) {
+        setDbUser(null)
+        return
+      }
+
+      try {
+        const token = await getToken()
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
+        const response = await fetch(`${API_URL}/auth/me`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        })
+
+        if (response.ok) {
+          const userData = await response.json()
+          setDbUser({
+            id: userData.id,
+            email: userData.email,
+            role: userData.role,
+            avatar_url: userData.avatarUrl || clerkUser.imageUrl || undefined,
+          })
+        } else {
+          setDbUser(null)
+        }
+      } catch (err) {
+        console.error('Failed to fetch user data:', err)
+        setDbUser(null)
+      }
+    }
+
+    fetchDbUser()
+  }, [clerkUser, isUserLoaded, getToken])
 
   useEffect(() => {
-    // Get initial user from localStorage
-    const currentUser = getCurrentUser() as User | null
-    setUser(currentUser)
-    
     // Fetch pages that should be displayed in navbar
     const fetchNavbarPages = async () => {
       try {
@@ -93,16 +130,37 @@ export default function Navbar({ onAdminMenuToggle, showAdminMenu, onUserMenuTog
     fetchNavbarPages()
   }, [])
 
-  // Notifications polling (lightweight)
+  // Notifications polling (lightweight) - Now uses Clerk token
   useEffect(() => {
     let mounted = true
     async function load() {
       try {
-        if (!user) { setUnreadCount(0); setNotifications([]); return }
+        if (!clerkUser || !isUserLoaded) { 
+          setUnreadCount(0)
+          setNotifications([])
+          return 
+        }
+        
+        const token = await getToken()
+        if (!token) return
+
+        // Fetch notifications with Clerk token
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
         const [{ count }, list] = await Promise.all([
-          notificationsAPI.unreadCount(),
-          notificationsAPI.list(),
+          fetch(`${API_URL}/notifications/unread-count`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          }).then(r => r.json()).then(r => ({ count: r.count || 0 })),
+          fetch(`${API_URL}/notifications`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          }).then(r => r.json()).then(r => r || []),
         ])
+        
         if (!mounted) return
         setUnreadCount(Number(count || 0))
         setNotifications(Array.isArray(list) ? list.slice(0, 10) : [])
@@ -116,29 +174,9 @@ export default function Navbar({ onAdminMenuToggle, showAdminMenu, onUserMenuTog
     load()
     const intervalId = setInterval(load, 15000)
     return () => { mounted = false; clearInterval(intervalId) }
-  }, [user])
+  }, [clerkUser, isUserLoaded, getToken])
 
-  // Listen for storage changes (e.g., login/logout from another tab)
-  useEffect(() => {
-    const handleStorageChange = () => {
-      const currentUser = getCurrentUser() as User | null
-      setUser(currentUser)
-    }
-
-    window.addEventListener('storage', handleStorageChange)
-    // Also check periodically (in case of same-tab changes)
-    const interval = setInterval(() => {
-      const currentUser = getCurrentUser() as User | null
-      if (currentUser?.id !== user?.id) {
-        setUser(currentUser)
-      }
-    }, 1000)
-
-    return () => {
-      window.removeEventListener('storage', handleStorageChange)
-      clearInterval(interval)
-    }
-  }, [user])
+  // Note: Clerk handles session management automatically - no need for storage listeners
 
   const handleSignOut = () => {
     setShowLogoutConfirm(true)
@@ -146,8 +184,8 @@ export default function Navbar({ onAdminMenuToggle, showAdminMenu, onUserMenuTog
 
   const confirmSignOut = () => {
     setShowLogoutConfirm(false)
-    authAPI.logout()
-    setUser(null)
+    // Clerk's UserButton handles logout, but we can also call signOut programmatically
+    // The UserButton component will handle this automatically
     navigate('/')
   }
 
@@ -268,7 +306,7 @@ export default function Navbar({ onAdminMenuToggle, showAdminMenu, onUserMenuTog
           <div className="hidden md:flex items-center space-x-3 flex-shrink-0 relative">
             {/* Theme mode toggle (public) */}
             <ThemeModeToggle />
-            {user && (
+            {clerkUser && (
               <div className="relative">
                 <motion.button
                   onClick={() => setShowNotifs(!showNotifs)}
@@ -303,7 +341,17 @@ export default function Navbar({ onAdminMenuToggle, showAdminMenu, onUserMenuTog
                         <button 
                           className="text-xs text-[var(--color-accent-secondary)] hover:text-[var(--color-accent-primary)] transition-colors" 
                           onClick={async()=>{ 
-                            await notificationsAPI.markAllRead();
+                            const token = await getToken()
+                            if (token) {
+                              const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
+                              await fetch(`${API_URL}/notifications/mark-all-read`, {
+                                method: 'POST',
+                                headers: {
+                                  'Authorization': `Bearer ${token}`,
+                                  'Content-Type': 'application/json',
+                                },
+                              })
+                            }
                             setUnreadCount(0);
                             setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
                           }}
@@ -347,7 +395,7 @@ export default function Navbar({ onAdminMenuToggle, showAdminMenu, onUserMenuTog
               </div>
             )}
             
-            {user && (
+            {clerkUser && (
               <div
                 className="relative"
                 onMouseEnter={() => setIsDashboardDropdownOpen(true)}
@@ -356,9 +404,9 @@ export default function Navbar({ onAdminMenuToggle, showAdminMenu, onUserMenuTog
                 <button
                   className="flex items-center gap-2 px-4 py-2 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors duration-300 group"
                 >
-                  {user?.avatar_url ? (
+                  {clerkUser?.imageUrl ? (
                     <img
-                      src={user.avatar_url}
+                      src={clerkUser.imageUrl}
                       alt="Profile"
                       className="w-8 h-8 rounded-full object-cover border-2 border-[var(--color-border-primary)] group-hover:border-[var(--color-accent-secondary)] transition-all"
                       onError={(e) => {
@@ -420,7 +468,7 @@ export default function Navbar({ onAdminMenuToggle, showAdminMenu, onUserMenuTog
               </div>
             )}
 
-            {user?.role === 'admin' && (
+            {isAdminUser && (
               <div
                 className="relative"
                 onMouseEnter={() => setIsAdminDropdownOpen(true)}
@@ -506,36 +554,37 @@ export default function Navbar({ onAdminMenuToggle, showAdminMenu, onUserMenuTog
               </div>
             )}
 
-            {user ? (
-              <motion.button
-                onClick={handleSignOut}
-                className="flex items-center justify-center w-10 h-10 rounded-full bg-[var(--color-interactive-bg)] backdrop-blur-sm border border-[var(--color-border-primary)] hover:bg-[var(--heatmap-risk)]/20 hover:border-[var(--heatmap-risk)] transition-all duration-300 group"
-                title="Sign Out"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <LogOut className="h-5 w-5 text-[var(--color-text-tertiary)] group-hover:text-[var(--heatmap-risk)] transition-colors" />
-              </motion.button>
+            {clerkUser ? (
+              // Use Clerk's UserButton component for user menu and logout
+              <UserButton
+                afterSignOutUrl="/"
+                appearance={{
+                  elements: {
+                    avatarBox: "w-10 h-10",
+                    userButtonPopoverCard: "bg-[var(--color-bg-secondary)] backdrop-blur-xl border border-[var(--color-border-secondary)]",
+                  },
+                }}
+              />
             ) : (
               <>
                 <motion.div
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
-                  <Link
-                    to="/login"
-                    className="flex items-center justify-center w-10 h-10 rounded-full bg-[var(--color-interactive-bg)] backdrop-blur-sm border border-[var(--color-border-primary)] hover:bg-[var(--color-accent-secondary)]/20 hover:border-[var(--color-accent-secondary)] transition-all duration-300 group"
-                    title="Sign In"
-                  >
-                    <User className="h-5 w-5 text-[var(--color-text-tertiary)] group-hover:text-[var(--color-accent-secondary)] transition-colors" />
+                  <Link to="/login">
+                    <button
+                      className="flex items-center justify-center w-10 h-10 rounded-full bg-[var(--color-interactive-bg)] backdrop-blur-sm border border-[var(--color-border-primary)] hover:bg-[var(--color-accent-secondary)]/20 hover:border-[var(--color-accent-secondary)] transition-all duration-300 group"
+                      title="Sign In"
+                    >
+                      <User className="h-5 w-5 text-[var(--color-text-tertiary)] group-hover:text-[var(--color-accent-secondary)] transition-colors" />
+                    </button>
                   </Link>
                 </motion.div>
-                <Link
-                  to="/login"
-                  className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[var(--color-accent-secondary)] to-[var(--color-accent-primary)] px-4 py-2 text-sm font-semibold text-[var(--color-text-primary)] shadow-lg transition hover:opacity-90"
-                >
-                  <Sparkles className="h-4 w-4" />
-                  <span>Create Account</span>
+                <Link to="/choose-account">
+                  <button className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[var(--color-accent-secondary)] to-[var(--color-accent-primary)] px-4 py-2 text-sm font-semibold text-[var(--color-text-primary)] shadow-lg transition hover:opacity-90">
+                    <Sparkles className="h-4 w-4" />
+                    <span>Create Account</span>
+                  </button>
                 </Link>
               </>
             )}
@@ -687,7 +736,7 @@ export default function Navbar({ onAdminMenuToggle, showAdminMenu, onUserMenuTog
                     </motion.div>
                     
                     {/* Admin Menu */}
-                    {user?.role === 'admin' && (
+                    {isAdminUser && (
                       <motion.div
                         whileHover={{ x: 5 }}
                         transition={{ duration: 0.2 }}
@@ -819,7 +868,7 @@ export default function Navbar({ onAdminMenuToggle, showAdminMenu, onUserMenuTog
                       transition={{ duration: 0.2 }}
                     >
                       <Link
-                        to="/login"
+                        to="/choose-account"
                         className="block px-4 py-3 rounded-lg bg-gradient-to-r from-[var(--color-accent-secondary)] to-[var(--color-accent-primary)] text-[var(--color-text-primary)] font-semibold shadow-lg transition-all duration-300 hover:opacity-90"
                         onClick={() => setIsOpen(false)}
                       >

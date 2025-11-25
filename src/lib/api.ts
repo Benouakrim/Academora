@@ -1,12 +1,24 @@
 // API client for Express.js backend
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
-// Helper function to get auth token from localStorage
+// Helper function to get Clerk auth token (for use in components with useAuth hook)
+export async function getClerkToken(): Promise<string | null> {
+  try {
+    // This will be called from components that have access to Clerk's useAuth hook
+    // For now, we'll try to use the Clerk SDK if available
+    const { useAuth } = await import('@clerk/clerk-react');
+    // Note: This is a placeholder - actual usage should be in components with useAuth hook
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+// Legacy helpers for backward compatibility (deprecated - use Clerk)
 function getAuthToken(): string | null {
   return localStorage.getItem('token');
 }
 
-// Helper function to set auth token in localStorage
 export function setAuthToken(token: string | null): void {
   if (token) {
     localStorage.setItem('token', token);
@@ -15,13 +27,11 @@ export function setAuthToken(token: string | null): void {
   }
 }
 
-// Helper function to get current user from localStorage
 export function getCurrentUser(): unknown {
   const userStr = localStorage.getItem('user');
   return userStr ? JSON.parse(userStr) : null;
 }
 
-// Helper function to set current user in localStorage
 export function setCurrentUser(user: unknown): void {
   if (user) {
     localStorage.setItem('user', JSON.stringify(user));
@@ -31,16 +41,24 @@ export function setCurrentUser(user: unknown): void {
 }
 
 // Generic fetch function with auth
+// Now supports Clerk tokens passed via headers
 async function fetchAPI(endpoint: string, options: RequestInit = {}) {
-  const token = getAuthToken();
+  // Check if a Clerk token is passed in headers (from useAuth hook)
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string> || {}),
   };
 
+  // Use Clerk token if provided, otherwise fall back to legacy token
+  const clerkToken = headers['X-Clerk-Token'] || (options.headers as Record<string, string>)?.Authorization?.replace('Bearer ', '');
+  const token = clerkToken || getAuthToken();
+
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
+  
+  // Remove X-Clerk-Token from headers if it exists (internal use only)
+  delete headers['X-Clerk-Token'];
 
   try {
     const response = await fetch(`${API_URL}${endpoint}`, {
@@ -321,52 +339,36 @@ export const uploadAPI = {
   async uploadImage(file: File) {
     const formData = new FormData();
     formData.append('image', file);
-    
+
     const token = getAuthToken();
     const headers: Record<string, string> = {};
-    
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
+    if (token) headers['Authorization'] = `Bearer ${token}`;
 
-    // Try user-friendly endpoints first, then fall back
-    const endpoints = [
-      '/user-uploads/image',
-      '/user/upload/image',
-      '/upload/image',
-    ];
-    let lastError: unknown = null;
-    for (const ep of endpoints) {
-      try {
-        const response = await fetch(`${API_URL}${ep}`, {
-          method: 'POST',
-          headers,
-          body: formData,
-        });
-        if (!response.ok) {
-          const error = await response.json().catch(() => ({ error: `HTTP error! status: ${response.status}`, status: response.status }));
-          // If 403/401, try next endpoint
-          if (response.status === 401 || response.status === 403 || response.status === 404) {
-            lastError = new Error(error.error || `HTTP error! status: ${response.status}`);
-            continue;
-          }
-          throw new Error(error.error || `HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-      } catch (err) {
-        lastError = err;
-        continue;
+    try {
+      const response = await fetch(`${API_URL}/upload/image`, {
+        method: 'POST',
+        headers,
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: `HTTP error! status: ${response.status}` }));
+        throw new Error(error.error || `HTTP error! status: ${response.status}`);
       }
+
+      return response.json();
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'TypeError' && error.message.includes('fetch')) {
+        throw new Error(`Cannot connect to API at ${API_URL}. Make sure the backend server is running on port 3001.`);
+      }
+      throw error;
     }
-    // If all endpoints failed
-    if (lastError instanceof Error && lastError.name === 'TypeError' && lastError.message.includes('fetch')) {
-      throw new Error(`Cannot connect to API at ${API_URL}. Make sure the backend server is running on port 3001.`);
-    }
-    throw lastError || new Error('Failed to upload image');
   },
 
-  async deleteImage(filename: string) {
-    return fetchAPI(`/upload/image/${filename}`, {
+  async deleteImage(publicIdOrUrl: string) {
+    // Support both public_id and full Cloudinary URL
+    const encodedId = encodeURIComponent(publicIdOrUrl);
+    return fetchAPI(`/upload/image/${encodedId}`, {
       method: 'DELETE',
     });
   },
@@ -396,7 +398,12 @@ export const uploadAPI = {
         throw new Error(error.error || `HTTP error! status: ${response.status}`);
       }
 
-      return response.json();
+      const result = await response.json();
+      // Cloudinary returns videoUrl, normalize to imageUrl format for consistency
+      return {
+        ...result,
+        imageUrl: result.videoUrl || result.imageUrl, // Support both
+      };
     } catch (error: unknown) {
       if (error instanceof Error && error.name === 'TypeError' && error.message.includes('fetch')) {
         throw new Error(`Cannot connect to API at ${API_URL}. Make sure the backend server is running on port 3001.`);

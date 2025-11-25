@@ -1,29 +1,12 @@
 import express from 'express';
 import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
-import { v4 as uuidv4 } from 'uuid';
 import { parseUserToken, requireAdmin, requireUser } from '../middleware/auth.js';
+import { uploadToCloudinary, deleteFromCloudinary, extractPublicId } from '../services/cloudinary.js';
 
 const router = express.Router();
 
-// Ensure uploads directory exists
-const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadsDir);
-  },
-  filename: (req, file, cb) => {
-    // Generate unique filename with original extension
-    const uniqueName = uuidv4() + path.extname(file.originalname);
-    cb(null, uniqueName);
-  }
-});
+// Configure multer for in-memory storage (we'll upload to Cloudinary directly)
+const storage = multer.memoryStorage();
 
 const imageFileFilter = (req, file, cb) => {
   if (file.mimetype.startsWith('image/')) {
@@ -45,7 +28,7 @@ const imageUpload = multer({
   storage,
   fileFilter: imageFileFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB limit
+    fileSize: 10 * 1024 * 1024, // 10MB limit (Cloudinary supports larger files)
   }
 });
 
@@ -58,63 +41,116 @@ const videoUpload = multer({
 });
 
 // Upload image endpoint
-router.post('/image', parseUserToken, requireUser, imageUpload.single('image'), (req, res) => {
+router.post('/image', parseUserToken, requireUser, imageUpload.single('image'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No image file provided' });
     }
 
-    // Create the URL that will be accessible from frontend
-    const imageUrl = `/uploads/${req.file.filename}`;
-    
+    // Upload to Cloudinary
+    const result = await uploadToCloudinary(
+      req.file.buffer,
+      req.file.originalname,
+      'academora/images',
+      {
+        resource_type: 'image',
+        transformation: [
+          { quality: 'auto', fetch_format: 'auto' }
+        ]
+      }
+    );
+
+    // Return Cloudinary URL
     res.json({
       message: 'Image uploaded successfully',
-      imageUrl,
-      filename: req.file.filename,
+      imageUrl: result.secure_url, // Full Cloudinary URL
+      publicId: result.public_id,
+      filename: result.original_filename,
       originalName: req.file.originalname,
-      size: req.file.size
+      size: result.bytes,
+      width: result.width,
+      height: result.height,
     });
   } catch (error) {
     console.error('Upload error:', error);
-    res.status(500).json({ error: 'Failed to upload image' });
+    res.status(500).json({ 
+      error: 'Failed to upload image',
+      details: error.message 
+    });
   }
 });
 
-// Delete image endpoint (optional)
-router.delete('/image/:filename', parseUserToken, requireAdmin, (req, res) => {
+// Delete image endpoint
+// Supports deleting by public_id or full Cloudinary URL
+router.delete('/image/:publicId(*)', parseUserToken, requireAdmin, async (req, res) => {
   try {
-    const filename = req.params.filename;
-    const filePath = path.join(uploadsDir, filename);
+    const publicId = req.params.publicId;
     
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-      res.json({ message: 'Image deleted successfully' });
+    if (!publicId) {
+      return res.status(400).json({ error: 'Public ID or URL is required' });
+    }
+
+    // Try to delete from Cloudinary
+    const result = await deleteFromCloudinary(publicId, 'image');
+
+    if (result.result === 'ok' || result.result === 'not found') {
+      res.json({ 
+        message: 'Image deleted successfully',
+        result: result.result 
+      });
     } else {
-      res.status(404).json({ error: 'Image not found' });
+      res.status(404).json({ 
+        error: 'Image not found',
+        result: result.result 
+      });
     }
   } catch (error) {
     console.error('Delete error:', error);
-    res.status(500).json({ error: 'Failed to delete image' });
+    res.status(500).json({ 
+      error: 'Failed to delete image',
+      details: error.message 
+    });
   }
 });
 
-router.post('/video', parseUserToken, requireUser, videoUpload.single('video'), (req, res) => {
+router.post('/video', parseUserToken, requireUser, videoUpload.single('video'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No video file provided' });
     }
 
-    const videoUrl = `/uploads/${req.file.filename}`;
+    // Upload to Cloudinary
+    const result = await uploadToCloudinary(
+      req.file.buffer,
+      req.file.originalname,
+      'academora/videos',
+      {
+        resource_type: 'video',
+        eager: [
+          { width: 1280, height: 720, crop: 'limit', quality: 'auto' }
+        ],
+        eager_async: false,
+      }
+    );
+
     res.json({
       message: 'Video uploaded successfully',
-      videoUrl,
-      filename: req.file.filename,
+      videoUrl: result.secure_url, // Full Cloudinary URL
+      publicId: result.public_id,
+      filename: result.original_filename,
       originalName: req.file.originalname,
-      size: req.file.size,
+      size: result.bytes,
+      width: result.width,
+      height: result.height,
+      duration: result.duration,
+      format: result.format,
     });
   } catch (error) {
     console.error('Video upload error:', error);
-    res.status(500).json({ error: 'Failed to upload video' });
+    res.status(500).json({ 
+      error: 'Failed to upload video',
+      details: error.message 
+    });
   }
 });
 

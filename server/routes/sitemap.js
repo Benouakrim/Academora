@@ -1,5 +1,5 @@
 import express from 'express'
-import supabase from '../database/supabase.js'
+import pool from '../database/pool.js'
 
 const router = express.Router()
 
@@ -15,16 +15,16 @@ router.get('/sitemap.xml', async (req, res) => {
     ])
 
     try {
-      const { data } = await supabase.from('articles').select('slug, updated_at, published').eq('published', true).limit(5000)
-      for (const a of data || []) urls.add(`/blog/${a.slug}`)
+      const result = await pool.query('SELECT slug, updated_at FROM articles WHERE published = true LIMIT 5000')
+      for (const a of result.rows || []) urls.add(`/blog/${a.slug}`)
     } catch {}
     try {
-      const { data } = await supabase.from('users').select('username, updated_at').limit(5000)
-      for (const u of data || []) if (u.username) urls.add(`/u/${u.username}`)
+      const result = await pool.query('SELECT username, updated_at FROM users WHERE username IS NOT NULL LIMIT 5000')
+      for (const u of result.rows || []) if (u.username) urls.add(`/u/${u.username}`)
     } catch {}
     try {
-      const { data } = await supabase.from('universities').select('slug, updated_at').limit(5000)
-      for (const u of data || []) if (u.slug) urls.add(`/universities/${u.slug}`)
+      const result = await pool.query('SELECT slug, updated_at FROM universities LIMIT 5000')
+      for (const u of result.rows || []) if (u.slug) urls.add(`/universities/${u.slug}`)
     } catch {}
 
     const body = `<?xml version="1.0" encoding="UTF-8"?>\n` +
@@ -40,5 +40,3 @@ router.get('/sitemap.xml', async (req, res) => {
 })
 
 export default router
-
-

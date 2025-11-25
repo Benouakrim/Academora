@@ -115,7 +115,13 @@ export function useArticleEditor(mode: Mode, id?: string) {
       }
       const arr = Array.isArray(data) ? data : (Array.isArray(data?.categories) ? data.categories : [])
       setCategories(arr)
-      if (!formData.category && arr.length > 0) setFormData((p) => ({ ...p, category: arr[0].name }))
+      // Set default category to first available, or update if current doesn't exist
+      if (arr.length > 0) {
+        const currentCategoryExists = arr.some(c => c.name === formData.category)
+        if (!formData.category || !currentCategoryExists) {
+          setFormData((p) => ({ ...p, category: arr[0].name }))
+        }
+      }
     } catch {
       setCategories([
         { id: '1', name: 'General', slug: 'general', type: 'blog' },
@@ -279,27 +285,70 @@ export function useArticleEditor(mode: Mode, id?: string) {
       if (status === 'pending' && submissionLimit && !submissionLimit.canSubmit && !isEditMode) {
         throw new Error(`You have reached the limit of ${submissionLimit.maxPending} pending articles.`)
       }
-      const categoryObj = categories.find((c) => c.name === formData.category)
+      // Try to find category by name (case-insensitive)
+      let categoryObj = categories.find((c) => 
+        c.name.toLowerCase() === formData.category?.toLowerCase() ||
+        c.name === formData.category
+      )
+      
+      // If category not found but we have categories, use the first one
+      if (!categoryObj && categories.length > 0) {
+        console.warn('[useArticleEditor] Category not found:', formData.category, 'Using first available category:', categories[0].name)
+        categoryObj = categories[0]
+        // Update formData to match
+        setFormData((p) => ({ ...p, category: categories[0].name }))
+      }
+      
+      // Log for debugging
+      console.log('[useArticleEditor] Category mapping:', {
+        categoryName: formData.category,
+        categoryObj: categoryObj,
+        categoryId: categoryObj ? categoryObj.id : null,
+        allCategories: categories.map(c => ({ id: c.id, name: c.name, slug: c.slug })),
+        categoriesCount: categories.length
+      })
       const body = {
         id: isEditMode ? (isNaN(Number(id)) ? undefined : Number(id)) : undefined,
         title: formData.title,
-        slug: formData.slug,
+        slug: formData.slug || (formData.title ? formData.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') : ''),
         excerpt: formData.excerpt,
         content: formData.content,
         featured_image: formData.featured_image,
-        category_id: categoryObj ? Number(categoryObj.id) : undefined,
+        category_id: categoryObj ? (isNaN(Number(categoryObj.id)) ? categoryObj.id : Number(categoryObj.id)) : null,
+        category: formData.category || 'General', // Send category name as fallback
         tags: [] as string[],
         meta_title: formData.meta_title,
         meta_description: formData.meta_description,
         status,
       }
+      console.log('[useArticleEditor] Request body:', { ...body, content: body.content ? `${body.content.substring(0, 50)}...` : null })
       const resp = await fetch(`${import.meta.env.VITE_API_URL}/user-articles/submit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(body),
       })
       const data = await resp.json()
-      if (!resp.ok) throw new Error(data?.error || 'Failed to save')
+      if (!resp.ok) {
+        console.error('[useArticleEditor] Save failed:', {
+          status: resp.status,
+          statusText: resp.statusText,
+          error: data?.error,
+          details: data?.details,
+          code: data?.code,
+          hint: data?.hint,
+          errorType: data?.errorType,
+          received: data?.received,
+          fullResponse: data
+        })
+        const errorMsg = data?.error || 'Failed to save'
+        let details = ''
+        if (data?.details) details = `: ${data.details}`
+        if (data?.hint && !details) details = ` (${data.hint})`
+        if (data?.code && data.code !== 'UNKNOWN' && data.code !== 'UNKNOWN_ERROR') {
+          details = `${details} [Code: ${data.code}]`
+        }
+        throw new Error(errorMsg + details)
+      }
       setMessage(data?.message || 'Saved successfully')
     } catch (err: any) {
       setError(err.message || 'Failed to save article')

@@ -12,6 +12,7 @@ import OrientationDetailPage from './pages/OrientationDetailPage'
 import LoginPage from './pages/LoginPage'
 import SignUpPage from './pages/SignUpPage'
 import RegisterPage from './pages/RegisterPage'
+import AccountTypeSelection from './pages/AccountTypeSelection'
 import PasswordResetRequest from './pages/PasswordResetRequest'
 import PasswordReset from './pages/PasswordReset'
 import NotFound from './pages/NotFound'
@@ -66,9 +67,11 @@ function App() {
         <Suspense fallback={<div className="p-6">Loading...</div>}>
         <Routes>
           <Route path={track("/")} element={<HomePage />} />
-          <Route path={track("/login")} element={<LoginPage />} />
-          <Route path={track("/signup")} element={<SignUpPage />} />
+          {/* Clerk authentication routes - catch-all for Clerk's internal paths (e.g., /login/factor-one) */}
+          <Route path={track("/login/*")} element={<LoginPage />} />
+          <Route path={track("/signup/*")} element={<SignUpPage />} />
           <Route path={track("/register")} element={<RegisterPage />} />
+          <Route path={track("/choose-account")} element={<AccountTypeSelection />} />
           <Route path={track("/password/forgot")} element={<PasswordResetRequest />} />
           <Route path={track("/password/reset")} element={<PasswordReset />} />
           <Route path={track("/dashboard")} element={<DashboardPage />} />

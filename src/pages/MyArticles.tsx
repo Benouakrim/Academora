@@ -79,10 +79,17 @@ export default function MyArticles() {
           Authorization: `Bearer ${localStorage.getItem('token')}`,
         },
       });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to load articles' }));
+        console.error('Error loading articles:', response.status, errorData);
+        setArticles([]);
+        return;
+      }
       const data = await response.json();
-      setArticles(data.articles);
+      setArticles(data.articles || []);
     } catch (error) {
       console.error('Error loading articles:', error);
+      setArticles([]);
     } finally {
       setLoading(false);
     }
@@ -95,6 +102,11 @@ export default function MyArticles() {
           Authorization: `Bearer ${localStorage.getItem('token')}`,
         },
       });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to check submission limit' }));
+        console.error('Error loading submission limit:', response.status, errorData);
+        return;
+      }
       const data = await response.json();
       setSubmissionLimit(data);
     } catch (error) {

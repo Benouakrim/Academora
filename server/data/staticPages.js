@@ -1,30 +1,14 @@
-import supabase from '../database/supabase.js';
+import prisma from '../database/prisma.js';
 
 // Get static page by slug
 export async function getStaticPageBySlug(slug) {
   try {
-    const { data, error } = await supabase
-      .from('static_pages')
-      .select('*')
-      .eq('slug', slug)
-      .single();
+    const page = await prisma.staticPage.findUnique({
+      where: { slug },
+    });
 
-    if (error) {
-      if (error.code === 'PGRST116') {
-        return null; // Not found
-      }
-      // Provide more helpful error messages
-      if (error.message && error.message.includes('relation') || error.code === '42P01') {
-        throw new Error('Static pages table does not exist. Please run the migration from server/database/migrations/05_create_static_pages.sql');
-      }
-      throw error;
-    }
-
-    return data || null;
+    return page || null;
   } catch (error) {
-    if (error instanceof Error) {
-      throw error;
-    }
     throw new Error(error.message || 'Failed to fetch static page from database');
   }
 }
@@ -32,26 +16,11 @@ export async function getStaticPageBySlug(slug) {
 // Get all static pages (for admin)
 export async function getAllStaticPages() {
   try {
-    const { data, error } = await supabase
-      .from('static_pages')
-      .select('*')
-      .order('updated_at', { ascending: false });
-
-    if (error) {
-      // Provide more helpful error messages
-      if (error.message && error.message.includes('relation') || error.code === '42P01') {
-        throw new Error('Static pages table does not exist. Please run the migration from server/database/migrations/05_create_static_pages.sql');
-      }
-      if (error.message && error.message.includes('column')) {
-        throw new Error('Static pages table is missing required columns. Please run the migration from server/database/migrations/05_create_static_pages.sql');
-      }
-      throw error;
-    }
-    return data || [];
+    const pages = await prisma.staticPage.findMany({
+      orderBy: { updatedAt: 'desc' },
+    });
+    return pages || [];
   } catch (error) {
-    if (error instanceof Error) {
-      throw error;
-    }
     throw new Error(error.message || 'Failed to fetch static pages from database');
   }
 }
@@ -64,78 +33,32 @@ export async function upsertStaticPage(pageData) {
       title, 
       content, 
       meta_title, 
-      meta_description, 
-      status = 'draft',
-      visibility_areas = [],
-      sort_order = 0
+      meta_description,
+      published = false,
+      // Note: status, visibility_areas, sort_order may need to be added to schema
     } = pageData;
 
-    // Check if page exists (catch error if table doesn't exist)
-    let existing;
-    try {
-      existing = await getStaticPageBySlug(slug);
-    } catch (err) {
-      // If table doesn't exist, rethrow the error
-      throw err;
-    }
+    const page = await prisma.staticPage.upsert({
+      where: { slug },
+      update: {
+        title,
+        content,
+        metaTitle: meta_title || null,
+        metaDescription: meta_description || null,
+        published: published || false,
+      },
+      create: {
+        slug,
+        title,
+        content,
+        metaTitle: meta_title || null,
+        metaDescription: meta_description || null,
+        published: published || false,
+      },
+    });
 
-    if (existing) {
-      // Update existing page
-      const { data, error } = await supabase
-        .from('static_pages')
-        .update({
-          title,
-          content,
-          meta_title,
-          meta_description,
-          status,
-          visibility_areas: Array.isArray(visibility_areas) ? visibility_areas : [],
-          sort_order,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('slug', slug)
-        .select()
-        .single();
-
-      if (error) {
-        if (error.message && error.message.includes('column')) {
-          throw new Error('Static pages table is missing required columns (status, visibility_areas, sort_order). Please run the migration from server/database/migrations/05_create_static_pages.sql');
-        }
-        throw error;
-      }
-      return data;
-    } else {
-      // Create new page
-      const { data, error } = await supabase
-        .from('static_pages')
-        .insert({
-          slug,
-          title,
-          content,
-          meta_title,
-          meta_description,
-          status,
-          visibility_areas: Array.isArray(visibility_areas) ? visibility_areas : [],
-          sort_order,
-        })
-        .select()
-        .single();
-
-      if (error) {
-        if (error.message && error.message.includes('relation') || error.code === '42P01') {
-          throw new Error('Static pages table does not exist. Please run the migration from server/database/migrations/05_create_static_pages.sql');
-        }
-        if (error.message && error.message.includes('column')) {
-          throw new Error('Static pages table is missing required columns. Please run the migration from server/database/migrations/05_create_static_pages.sql');
-        }
-        throw error;
-      }
-      return data;
-    }
+    return page;
   } catch (error) {
-    if (error instanceof Error) {
-      throw error;
-    }
     throw new Error(error.message || 'Failed to save static page to database');
   }
 }
@@ -143,31 +66,20 @@ export async function upsertStaticPage(pageData) {
 // Get pages for navbar (published pages with navbar visibility)
 export async function getNavbarPages() {
   try {
-    const { data, error } = await supabase
-      .from('static_pages')
-      .select('id, slug, title, visibility_areas, sort_order')
-      .eq('status', 'published')
-      .order('sort_order', { ascending: true })
-      .order('title', { ascending: true });
-
-    if (error) {
-      if (error.message && error.message.includes('relation') || error.code === '42P01') {
-        throw new Error('Static pages table does not exist. Please run the migration from server/database/migrations/05_create_static_pages.sql');
-      }
-      throw error;
-    }
-
-    // Filter pages that have 'navbar' in visibility_areas
-    const navbarPages = (data || []).filter(page => {
-      const areas = page.visibility_areas || [];
-      return Array.isArray(areas) && areas.includes('navbar');
+    const pages = await prisma.staticPage.findMany({
+      where: { published: true },
+      select: {
+        id: true,
+        slug: true,
+        title: true,
+      },
+      orderBy: { title: 'asc' },
     });
 
-    return navbarPages;
+    // Note: visibility_areas filtering may need schema update
+    return pages || [];
   } catch (error) {
-    if (error instanceof Error) {
-      throw error;
-    }
+    console.error('❌ getNavbarPages error:', error);
     throw new Error(error.message || 'Failed to fetch navbar pages from database');
   }
 }
@@ -175,21 +87,14 @@ export async function getNavbarPages() {
 // Delete static page
 export async function deleteStaticPage(slug) {
   try {
-    const { error } = await supabase
-      .from('static_pages')
-      .delete()
-      .eq('slug', slug);
-
-    if (error) {
-      if (error.message && error.message.includes('relation') || error.code === '42P01') {
-        throw new Error('Static pages table does not exist. Please run the migration from server/database/migrations/05_create_static_pages.sql');
-      }
-      throw error;
-    }
+    await prisma.staticPage.delete({
+      where: { slug },
+    });
     return true;
   } catch (error) {
-    if (error instanceof Error) {
-      throw error;
+    if (error.code === 'P2025') {
+      // Record not found
+      return false;
     }
     throw new Error(error.message || 'Failed to delete static page from database');
   }

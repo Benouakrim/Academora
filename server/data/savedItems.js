@@ -1,21 +1,21 @@
-import supabase from '../database/supabase.js';
+import prisma from '../database/prisma.js';
 
 export async function getSavedItems(userId, itemType = null) {
   try {
-    let query = supabase
-      .from('saved_items')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
+    const where = {
+      userId,
+      // Note: item_type may need to be added to schema if it exists
+    };
 
-    if (itemType) {
-      query = query.eq('item_type', itemType);
-    }
+    const items = await prisma.savedItem.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        university: true,
+      },
+    });
 
-    const { data, error } = await query;
-
-    if (error) throw error;
-    return data || [];
+    return items || [];
   } catch (error) {
     throw error;
   }
@@ -23,40 +23,36 @@ export async function getSavedItems(userId, itemType = null) {
 
 export async function saveItem(userId, itemType, itemId, itemData = null) {
   try {
-    const { data, error } = await supabase
-      .from('saved_items')
-      .insert([{
-        user_id: userId,
-        item_type: itemType,
-        item_id: itemId,
-        item_data: itemData,
-      }])
-      .select()
-      .single();
-
-    if (error) {
-      // If duplicate, just return existing
-      if (error.code === '23505') {
-        return await getSavedItem(userId, itemType, itemId);
-      }
-      throw error;
-    }
-    return data;
+    // Assuming saved_items is for universities (based on schema)
+    const item = await prisma.savedItem.create({
+      data: {
+        userId,
+        universityId: itemId, // Assuming itemId is universityId
+        notes: itemData?.notes || null,
+        folder: itemData?.folder || null,
+      },
+      include: {
+        university: true,
+      },
+    });
+    return item;
   } catch (error) {
+    // If duplicate, just return existing
+    if (error.code === 'P2002') {
+      return await getSavedItem(userId, itemType, itemId);
+    }
     throw error;
   }
 }
 
 export async function unsaveItem(userId, itemType, itemId) {
   try {
-    const { error } = await supabase
-      .from('saved_items')
-      .delete()
-      .eq('user_id', userId)
-      .eq('item_type', itemType)
-      .eq('item_id', itemId);
-
-    if (error) throw error;
+    await prisma.savedItem.deleteMany({
+      where: {
+        userId,
+        universityId: itemId, // Assuming itemId is universityId
+      },
+    });
     return true;
   } catch (error) {
     throw error;
@@ -65,19 +61,16 @@ export async function unsaveItem(userId, itemType, itemId) {
 
 export async function getSavedItem(userId, itemType, itemId) {
   try {
-    const { data, error } = await supabase
-      .from('saved_items')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('item_type', itemType)
-      .eq('item_id', itemId)
-      .single();
-
-    if (error) {
-      if (error.code === 'PGRST116') return null;
-      throw error;
-    }
-    return data;
+    const item = await prisma.savedItem.findFirst({
+      where: {
+        userId,
+        universityId: itemId, // Assuming itemId is universityId
+      },
+      include: {
+        university: true,
+      },
+    });
+    return item || null;
   } catch (error) {
     throw error;
   }
@@ -94,12 +87,9 @@ export async function isItemSaved(userId, itemType, itemId) {
 
 export async function getSavedItemsCount(userId) {
   try {
-    const { count, error } = await supabase
-      .from('saved_items')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId);
-
-    if (error) throw error;
+    const count = await prisma.savedItem.count({
+      where: { userId },
+    });
     return count || 0;
   } catch (error) {
     throw error;

@@ -1,60 +1,71 @@
-import jwt from 'jsonwebtoken';
-import { findUserById } from '../data/users.js';
+import { clerkMiddleware, getAuth, requireAuth } from '@clerk/express';
+import { findUserByClerkId, findUserByEmail } from '../data/users.js';
 
-// This is the new standard:
-// It TRIES to authenticate. If a token is present and valid,
-// it attaches req.user. If not, it just calls next().
-// This allows routes to be used by both anonymous and logged-in users.
-export const parseUserToken = async (req, res, next) => {
-  const token = req.headers['authorization']?.split(' ')[1];
-  if (!token) {
-    req.user = null;
-    return next();
-  }
-
+// Clerk middleware - parses auth token and attaches Clerk session info to req.auth
+// This is non-blocking - it will parse the token if present, but won't fail if absent
+// Wrap in error handling to prevent crashes
+export const parseUserToken = (req, res, next) => {
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const userId = decoded.id || decoded.userId;
-    if (!userId) {
-      req.user = null;
-      return next();
-    }
-    // Fetch full user details, including plan and role
-    const user = await findUserById(userId);
-    if (user) {
-      // Exclude password from the req.user object
-      const { password, ...userWithoutPassword } = user;
-      req.user = userWithoutPassword;
-    } else {
-      req.user = null;
-    }
+    return clerkMiddleware()(req, res, next);
   } catch (error) {
-    req.user = null;
+    console.error('❌ Clerk middleware error:', error.message);
+    // Continue without auth if Clerk fails
+    next();
   }
-
-  next();
 };
 
-// Middleware to REQUIRE a valid user.
-export const requireUser = (req, res, next) => {
-  console.log('[AUTH] requireUser check, req.user:', req.user ? `${req.user.id} (${req.user.email})` : 'NULL');
-  if (!req.user) {
-    return res.status(401).json({ error: 'Authentication required.' });
+// Middleware to REQUIRE a valid Clerk session
+// This will return 401 if user is not authenticated
+export const requireUser = requireAuth();
+
+// Middleware to REQUIRE an admin user
+export const requireAdmin = async (req, res, next) => {
+  try {
+    // First ensure user is authenticated
+    const { userId } = getAuth(req);
+    if (!userId) {
+      return res.status(401).json({ error: 'Authentication required.' });
+    }
+
+    // Get user from database to check role
+    const user = await findUserByClerkId(userId);
+    if (!user) {
+      return res.status(401).json({ error: 'User not found in database.' });
+    }
+
+    if (user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required.' });
+    }
+
+    // Attach user to request for convenience
+    req.user = user;
+    next();
+  } catch (error) {
+    console.error('[AUTH] requireAdmin error:', error);
+    return res.status(500).json({ error: 'Authentication check failed.' });
   }
-  next();
 };
 
-// Middleware to REQUIRE an admin user.
-export const requireAdmin = (req, res, next) => {
-  if (!req.user) {
-    return res.status(401).json({ error: 'Authentication required.' });
-  }
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ error: 'Admin access required.' });
-  }
-  next();
-};
+// Helper to get current user from Clerk session and sync with database
+export const getCurrentUser = async (req) => {
+  try {
+    const { userId } = getAuth(req);
+    if (!userId) {
+      return null;
+    }
 
-// Replace old ad-hoc token verification
-// This file now exports all auth middleware.
+    // Find user in database by Clerk ID
+    let user = await findUserByClerkId(userId);
+    
+    // If user doesn't exist in DB, try to find by email (for migration purposes)
+    if (!user && req.auth?.sessionClaims?.email) {
+      user = await findUserByEmail(req.auth.sessionClaims.email);
+    }
+
+    return user || null;
+  } catch (error) {
+    console.error('[AUTH] getCurrentUser error:', error);
+    return null;
+  }
+};
 

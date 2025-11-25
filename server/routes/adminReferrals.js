@@ -1,5 +1,5 @@
 import express from 'express';
-import pool from '../database/supabase.js';
+import pool from '../database/pool.js';
 import { parseUserToken, requireAdmin } from '../middleware/auth.js';
 
 const router = express.Router();

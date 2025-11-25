@@ -24,7 +24,7 @@ A modern blog and SaaS platform for academic orientation, study guidance, and ed
 
 ### Backend
 - **Express.js** - Node.js web framework
-- **Supabase** - PostgreSQL database (managed)
+- **PostgreSQL** - Database (Neon, Supabase, or any PostgreSQL database)
 - **JWT** - JSON Web Tokens for authentication
 - **bcrypt** - Password hashing
 - **CORS** - Cross-origin resource sharing
@@ -34,7 +34,7 @@ A modern blog and SaaS platform for academic orientation, study guidance, and ed
 ### Prerequisites
 
 - Node.js 18+ and npm/yarn/pnpm
-- Supabase account (free at https://supabase.com)
+- PostgreSQL database (Neon, Supabase, or any PostgreSQL instance)
 
 ### Installation
 
@@ -43,11 +43,10 @@ A modern blog and SaaS platform for academic orientation, study guidance, and ed
 npm install
 ```
 
-2. Set up Supabase:
-   - Create account at https://supabase.com
-   - Create a new project
-   - Get your Project URL and Service Role Key (Settings → API)
-   - Run the SQL schema from `server/database/schema.sql` in Supabase SQL Editor
+2. Set up your PostgreSQL database:
+   - Create a PostgreSQL database (Neon, Supabase, or self-hosted)
+   - Get your database connection string
+   - Run the SQL schema from `server/database/schema.sql` in your database
 
 3. Create a `.env` file in the root directory:
 ```env
@@ -55,14 +54,17 @@ PORT=3001
 JWT_SECRET=your-secret-key-change-in-production
 VITE_API_URL=http://localhost:3001/api
 
-# Supabase Configuration
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_KEY=your-service-role-key-here
-# OR use SUPABASE_SERVICE_ROLE_KEY
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
+# Database Configuration
+DATABASE_URL=postgresql://user:password@host:port/database
+# OR use individual variables:
+# DB_HOST=your-db-host
+# DB_PORT=5432
+# DB_NAME=your-database
+# DB_USER=your-username
+# DB_PASSWORD=your-password
 ```
 
-**Important**: Use the `service_role` key (not `anon` key) from Supabase Settings → API → service_role key.
+**Important**: Use a PostgreSQL connection string. For Neon, Supabase, or other managed PostgreSQL services, get the connection string from your provider's dashboard.
 
 4. Start the development servers:
 
@@ -120,26 +122,22 @@ npm run build
 
 ## Database Setup
 
-1. **Create Supabase Project**
-   - Go to https://supabase.com/dashboard
-   - Create a new project
-   - Wait for project setup (~2 minutes)
+1. **Set Up PostgreSQL Database**
+   - Create a PostgreSQL database (Neon, Supabase, or any PostgreSQL instance)
+   - Get your database connection string
 
 2. **Run Database Schema**
-   - Go to SQL Editor in Supabase Dashboard
+   - Connect to your database (using psql, pgAdmin, or your provider's SQL editor)
    - Copy and paste contents of `server/database/schema.sql`
-   - Click Run
+   - Execute the SQL
 
-3. **Get Your Keys**
-   - Go to Settings → API
-   - Copy:
-     - Project URL
-     - service_role key (secret key for server operations)
+3. **Get Your Database Credentials**
+   - Get your database connection string from your provider's dashboard
+   - Format: `postgresql://user:password@host:port/database`
 
 4. **Add to .env**
    ```env
-   SUPABASE_URL=your-project-url
-   SUPABASE_KEY=your-service-role-key
+   DATABASE_URL=postgresql://user:password@host:port/database
    ```
 
 See `server/database/README.md` for detailed setup instructions.
@@ -151,7 +149,7 @@ See `server/database/README.md` for detailed setup instructions.
 ├── server/              # Express.js backend
 │   ├── index.js        # Server entry point
 │   ├── database/       # Database configuration
-│   │   ├── supabase.js # Supabase client
+│   │   ├── pool.js # PostgreSQL connection pool
 │   │   ├── schema.sql  # Database schema
 │   │   └── README.md   # Setup instructions
 │   ├── routes/         # API routes
@@ -245,7 +243,7 @@ Access the admin dashboard at `/admin` (requires login):
 
 ### Recommended Stack
 
-1. **Database**: Supabase (already set up)
+1. **Database**: PostgreSQL (already set up)
 2. **Backend**: Railway.app or Render.com
 3. **Frontend**: Vercel or Netlify
 

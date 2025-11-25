@@ -1,0 +1,844 @@
+// This is your Prisma schema file
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums
+enum LimitType {
+  count
+  unlimited
+}
+
+enum ReviewStatus {
+  pending
+  approved
+  rejected
+}
+
+enum ReferralStatus {
+  pending
+  completed
+  rewarded
+}
+
+enum ArticleStatus {
+  draft
+  pending
+  approved
+  rejected
+  published
+}
+
+enum UserStatus {
+  active
+  suspended
+  deleted
+}
+
+enum AccountType {
+  student
+  parent
+  counselor
+  university
+}
+
+enum UserRole {
+  user
+  admin
+  moderator
+}
+
+enum UserPlan {
+  free
+  premium
+  enterprise
+}
+
+// ========================================
+// CORE TABLES
+// ========================================
+
+model User {
+  id       String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email    String  @unique @db.VarChar(255)
+  phone    String? @unique @db.VarChar(20)
+  password String? @db.VarChar(255) // Nullable for Clerk users who don't have passwords
+  clerkId  String? @unique @map("clerk_id") @db.VarChar(255) // Clerk user ID for authentication
+
+  // Profile
+  firstName String? @map("first_name") @db.VarChar(100)
+  lastName  String? @map("last_name") @db.VarChar(100)
+  username  String? @unique @db.VarChar(50)
+  bio       String? @db.Text
+  avatarUrl String? @map("avatar_url") @db.VarChar(500)
+
+  // Account info
+  accountType        AccountType @default(student) @map("account_type")
+  role               UserRole    @default(user)
+  plan               UserPlan    @default(free) @map("plan")
+  planId             String?     @map("plan_id") @db.Uuid
+  subscriptionStatus String?     @map("subscription_status") @db.Text
+
+  // Status
+  emailVerified Boolean    @default(false) @map("email_verified")
+  phoneVerified Boolean    @default(false) @map("phone_verified")
+  status        UserStatus @default(active)
+
+  // Referrals
+  referralCode   String? @unique @map("referral_code") @db.VarChar(20)
+  referredBy     String? @map("referred_by") @db.Uuid
+  referredByCode String? @map("referred_by_code") @db.VarChar(20)
+  referralCount  Int     @default(0) @map("referral_count")
+
+  // Timestamps
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  lastLoginAt DateTime? @map("last_login_at") @db.Timestamptz(6)
+
+  // Relations
+  articles                  Article[]
+  reviews                   Review[]
+  savedItems                SavedItem[]
+  savedComparisons          SavedComparison[]
+  referralCodes             ReferralCode[]
+  referralsAsReferrer       Referral[]            @relation("Referrer")
+  referralsAsReferred       Referral[]            @relation("Referred")
+  universityClaims          UniversityClaim[]
+  financialProfile          UserFinancialProfile?
+  notifications             Notification[]
+  preferences               UserPreference?
+  articleComments           ArticleComment[]
+  articleViews              ArticleView[]
+  featureUsage              UserFeatureUsage[]
+  referralRewardsAsReferrer ReferralReward[]      @relation("RewardReferrer")
+  referralRewardsAsReferred ReferralReward[]      @relation("RewardReferred")
+
+  @@index([email])
+  @@index([username])
+  @@index([referralCode])
+  @@index([role])
+  @@index([plan])
+  @@index([clerkId])
+  @@map("users")
+}
+
+model University {
+  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String  @db.VarChar(255)
+  slug        String  @unique @db.VarChar(255)
+  description String? @db.Text
+  logoUrl     String? @map("logo_url") @db.VarChar(500)
+  website     String? @db.VarChar(255)
+
+  // Location
+  address   String?  @db.VarChar(255)
+  city      String?  @db.VarChar(100)
+  state     String?  @db.VarChar(2)
+  zipCode   String?  @map("zip_code") @db.VarChar(10)
+  country   String   @default("USA") @db.VarChar(100)
+  latitude  Decimal? @db.Decimal(10, 8)
+  longitude Decimal? @db.Decimal(11, 8)
+
+  // Type & Classification
+  type                 String? @db.VarChar(50)
+  classification       String? @db.VarChar(100)
+  religiousAffiliation String? @map("religious_affiliation") @db.VarChar(100)
+
+  // Admissions
+  acceptanceRate        Decimal?  @map("acceptance_rate") @db.Decimal(5, 2)
+  applicationDeadline   DateTime? @map("application_deadline") @db.Date
+  earlyDecisionDeadline DateTime? @map("early_decision_deadline") @db.Date
+
+  // Costs
+  tuitionInState    Decimal? @map("tuition_in_state") @db.Decimal(10, 2)
+  tuitionOutState   Decimal? @map("tuition_out_state") @db.Decimal(10, 2)
+  roomAndBoard      Decimal? @map("room_and_board") @db.Decimal(10, 2)
+  totalCostInState  Decimal? @map("total_cost_in_state") @db.Decimal(10, 2)
+  totalCostOutState Decimal? @map("total_cost_out_state") @db.Decimal(10, 2)
+
+  // Financial Aid
+  averageFinancialAid Decimal? @map("average_financial_aid") @db.Decimal(10, 2)
+  percentReceivingAid Decimal? @map("percent_receiving_aid") @db.Decimal(5, 2)
+  averageNetPrice     Decimal? @map("average_net_price") @db.Decimal(10, 2)
+
+  // Student Body
+  studentPopulation       Int?     @map("student_population")
+  undergraduatePopulation Int?     @map("undergraduate_population")
+  graduatePopulation      Int?     @map("graduate_population")
+  studentFacultyRatio     String?  @map("student_faculty_ratio") @db.VarChar(10)
+  percentMale             Decimal? @map("percent_male") @db.Decimal(5, 2)
+  percentFemale           Decimal? @map("percent_female") @db.Decimal(5, 2)
+
+  // Outcomes
+  graduationRate        Decimal? @map("graduation_rate") @db.Decimal(5, 2)
+  retentionRate         Decimal? @map("retention_rate") @db.Decimal(5, 2)
+  employmentRate        Decimal? @map("employment_rate") @db.Decimal(5, 2)
+  averageStartingSalary Decimal? @map("average_starting_salary") @db.Decimal(10, 2)
+
+  // Academic
+  satMath25      Int?     @map("sat_math_25")
+  satMath75      Int?     @map("sat_math_75")
+  satVerbal25    Int?     @map("sat_verbal_25")
+  satVerbal75    Int?     @map("sat_verbal_75")
+  actComposite25 Int?     @map("act_composite_25")
+  actComposite75 Int?     @map("act_composite_75")
+  averageGpa     Decimal? @map("average_gpa") @db.Decimal(3, 2)
+
+  // Rankings (JSON)
+  rankings Json? @db.JsonB
+
+  // Features
+  verified Boolean @default(false)
+  claimed  Boolean @default(false)
+  premium  Boolean @default(false)
+
+  // SEO
+  metaTitle       String? @map("meta_title") @db.VarChar(255)
+  metaDescription String? @map("meta_description") @db.Text
+  metaKeywords    String? @map("meta_keywords") @db.Text
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  reviews          Review[]
+  savedItems       SavedItem[]
+  microContent     MicroContent[]
+  universityClaims UniversityClaim[]
+  groupMembers     UniversityGroupMember[]
+
+  @@index([slug])
+  @@index([state])
+  @@index([type])
+  @@index([verified])
+  @@map("universities")
+}
+
+model UniversityGroup {
+  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String  @db.VarChar(255)
+  slug        String  @unique @db.VarChar(255)
+  description String? @db.Text
+  logoUrl     String? @map("logo_url") @db.VarChar(500)
+  website     String? @db.VarChar(255)
+  memberCount Int     @default(0) @map("member_count")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  members UniversityGroupMember[]
+
+  @@map("university_groups")
+}
+
+model UniversityGroupMember {
+  universityId String   @map("university_id") @db.Uuid
+  groupId      String   @map("group_id") @db.Uuid
+  joinedAt     DateTime @default(now()) @map("joined_at") @db.Timestamptz(6)
+
+  university University      @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  group      UniversityGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@id([universityId, groupId])
+  @@index([universityId])
+  @@index([groupId])
+  @@map("university_group_members")
+}
+
+model Article {
+  id            String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title         String  @db.VarChar(255)
+  slug          String  @unique @db.VarChar(255)
+  excerpt       String? @db.Text
+  content       String  @db.Text
+  featuredImage String? @map("featured_image") @db.VarChar(500)
+
+  // Classification
+  category     String   @db.VarChar(100)
+  categoryType String   @default("standard") @map("category_type") @db.VarChar(50)
+  tags         String[] @db.Text
+
+  // Author
+  authorId   String? @map("author_id") @db.Uuid
+  authorName String? @map("author_name") @db.VarChar(255)
+
+  // Status
+  published       Boolean       @default(false)
+  featured        Boolean       @default(false)
+  premium         Boolean       @default(false)
+  allowComments   Boolean       @default(true) @map("allow_comments")
+  status          ArticleStatus @default(published)
+  submittedAt     DateTime?     @map("submitted_at") @db.Timestamptz(6)
+  reviewedAt      DateTime?     @map("reviewed_at") @db.Timestamptz(6)
+  reviewedBy      String?       @map("reviewed_by") @db.Uuid
+  rejectionReason String?       @map("rejection_reason") @db.Text
+
+  // SEO
+  metaTitle       String? @map("meta_title") @db.VarChar(255)
+  metaDescription String? @map("meta_description") @db.Text
+  metaKeywords    String? @map("meta_keywords") @db.Text
+
+  // Analytics
+  viewCount Int @default(0) @map("view_count")
+
+  // Timestamps
+  publishedAt DateTime? @map("published_at") @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  author           User?                    @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  comments         ArticleComment[]
+  views            ArticleView[]
+  terms            ArticleTerm[]
+  performanceStats ArticlePerformanceStat[]
+
+  @@index([slug])
+  @@index([category])
+  @@index([published])
+  @@index([authorId])
+  @@index([status])
+  @@index([authorId, status])
+  @@map("articles")
+}
+
+model Review {
+  id           String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  universityId String @map("university_id") @db.Uuid
+  userId       String @map("user_id") @db.Uuid
+
+  // Ratings (1-5)
+  rating         Decimal  @db.Decimal(2, 1)
+  academicRating Decimal? @map("academic_rating") @db.Decimal(2, 1)
+  campusRating   Decimal? @map("campus_rating") @db.Decimal(2, 1)
+  careerRating   Decimal? @map("career_rating") @db.Decimal(2, 1)
+  socialRating   Decimal? @map("social_rating") @db.Decimal(2, 1)
+
+  // Content
+  title   String? @db.VarChar(255)
+  content String  @db.Text
+
+  // Metadata
+  verified     Boolean @default(false)
+  anonymous    Boolean @default(false)
+  helpfulCount Int     @default(0) @map("helpful_count")
+
+  // Status
+  status ReviewStatus @default(pending)
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  university University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([universityId, userId])
+  @@index([universityId])
+  @@index([userId])
+  @@index([rating])
+  @@index([status])
+  @@map("reviews")
+}
+
+model SavedItem {
+  id           String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String @map("user_id") @db.Uuid
+  universityId String @map("university_id") @db.Uuid
+
+  notes  String? @db.Text
+  folder String? @db.VarChar(100)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  university University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, universityId])
+  @@index([userId])
+  @@index([universityId])
+  @@index([folder])
+  @@map("saved_items")
+}
+
+model SavedComparison {
+  id     String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+
+  name          String?  @db.VarChar(255)
+  universityIds String[] @map("university_ids") @db.Uuid
+
+  notes String? @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("saved_comparisons")
+}
+
+model Referral {
+  id           Int            @id @default(autoincrement())
+  referrerId   String         @map("referrer_id") @db.Uuid
+  referredId   String         @map("referred_id") @db.Uuid
+  referralCode String         @map("referral_code") @db.VarChar(20)
+  status       ReferralStatus @default(pending)
+  completedAt  DateTime?      @map("completed_at") @db.Timestamptz(6)
+  rewardGiven  Boolean        @default(false) @map("reward_given")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  referrer User             @relation("Referrer", fields: [referrerId], references: [id], onDelete: Cascade)
+  referred User             @relation("Referred", fields: [referredId], references: [id], onDelete: Cascade)
+  rewards  ReferralReward[]
+
+  @@unique([referredId])
+  @@index([referrerId])
+  @@index([referredId])
+  @@index([status])
+  @@map("referrals")
+}
+
+model ReferralCode {
+  id        Int       @id @default(autoincrement())
+  userId    String    @map("user_id") @db.Uuid
+  code      String    @unique @db.VarChar(20)
+  totalUses Int       @default(0) @map("total_uses")
+  active    Boolean   @default(true)
+  expiresAt DateTime? @map("expires_at") @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId])
+  @@index([userId])
+  @@index([code])
+  @@map("referral_codes")
+}
+
+model ReferralReward {
+  id          Int       @id @default(autoincrement())
+  referralId  Int       @map("referral_id")
+  referrerId  String    @map("referrer_id") @db.Uuid
+  referredId  String    @map("referred_id") @db.Uuid
+  rewardType  String    @map("reward_type") @db.VarChar(50)
+  rewardValue String    @map("reward_value") @db.Text
+  applied     Boolean   @default(false)
+  appliedAt   DateTime? @map("applied_at") @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  referral Referral @relation(fields: [referralId], references: [id], onDelete: Cascade)
+  referrer User     @relation("RewardReferrer", fields: [referrerId], references: [id], onDelete: Cascade)
+  referred User     @relation("RewardReferred", fields: [referredId], references: [id], onDelete: Cascade)
+
+  @@index([referrerId])
+  @@index([referredId])
+  @@map("referral_rewards")
+}
+
+model ReferralSetting {
+  id           Int      @id @default(autoincrement())
+  settingKey   String   @unique @map("setting_key") @db.VarChar(100)
+  settingValue String   @map("setting_value") @db.Text
+  description  String?  @db.Text
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("referral_settings")
+}
+
+// ========================================
+// CONTENT TABLES
+// ========================================
+
+model ArticleView {
+  id        String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  articleId String  @map("article_id") @db.Uuid
+  userId    String? @map("user_id") @db.Uuid
+
+  sessionId String? @map("session_id") @db.VarChar(255)
+  ipAddress String? @map("ip_address") @db.Inet
+  userAgent String? @map("user_agent") @db.Text
+
+  referrer   String? @db.VarChar(500)
+  country    String? @db.VarChar(100)
+  deviceType String? @map("device_type") @db.VarChar(50)
+
+  viewedAt DateTime @default(now()) @map("viewed_at") @db.Timestamptz(6)
+
+  article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([articleId])
+  @@index([userId])
+  @@index([viewedAt(sort: Desc)])
+  @@index([sessionId])
+  @@map("article_views")
+}
+
+model ArticleComment {
+  id        String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  articleId String @map("article_id") @db.Uuid
+  userId    String @map("user_id") @db.Uuid
+
+  content String @db.Text
+
+  parentCommentId String? @map("parent_comment_id") @db.Uuid
+
+  status String @default("approved") @db.VarChar(20)
+
+  upvotes   Int @default(0)
+  downvotes Int @default(0)
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([articleId])
+  @@index([userId])
+  @@index([parentCommentId])
+  @@index([status])
+  @@map("article_comments")
+}
+
+model MicroContent {
+  id           String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  universityId String? @map("university_id") @db.Uuid
+
+  category String @db.VarChar(100)
+  title    String @db.VarChar(255)
+  content  String @db.Text
+
+  priority Int @default(0)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  university University? @relation(fields: [universityId], references: [id], onDelete: Cascade)
+
+  @@index([universityId])
+  @@index([category])
+  @@index([priority])
+  @@map("micro_content")
+}
+
+model OrientationResource {
+  id      String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title   String @db.VarChar(255)
+  slug    String @db.VarChar(255)
+  content String @db.Text
+
+  category String @db.VarChar(50)
+
+  featured Boolean @default(false)
+  premium  Boolean @default(false)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([category, slug])
+  @@index([category])
+  @@index([featured])
+  @@map("orientation_resources")
+}
+
+model StaticPage {
+  id      String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug    String @unique @db.VarChar(255)
+  title   String @db.VarChar(255)
+  content String @db.Text
+
+  metaTitle       String? @map("meta_title") @db.VarChar(255)
+  metaDescription String? @map("meta_description") @db.Text
+
+  published Boolean @default(false)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([slug])
+  @@index([published])
+  @@map("static_pages")
+}
+
+model SiteVideo {
+  id           String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title        String  @db.Text
+  description  String? @db.Text
+  videoUrl     String? @map("video_url") @db.Text
+  embedCode    String? @map("embed_code") @db.Text
+  thumbnailUrl String? @map("thumbnail_url") @db.Text
+  position     Int     @default(0)
+  isActive     Boolean @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([position])
+  @@index([isActive])
+  @@map("site_videos")
+}
+
+// ========================================
+// USER DATA TABLES
+// ========================================
+
+model UniversityClaim {
+  id           String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  universityId String @map("university_id") @db.Uuid
+  userId       String @map("user_id") @db.Uuid
+
+  position         String? @db.VarChar(100)
+  email            String  @db.VarChar(255)
+  phone            String? @db.VarChar(20)
+  documentationUrl String? @map("documentation_url") @db.VarChar(500)
+
+  message String? @db.Text
+
+  status String @default("pending") @db.VarChar(20)
+
+  reviewedBy String?   @map("reviewed_by") @db.Uuid
+  reviewedAt DateTime? @map("reviewed_at") @db.Timestamptz(6)
+  adminNotes String?   @map("admin_notes") @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  university University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([universityId])
+  @@index([userId])
+  @@index([status])
+  @@map("university_claims")
+}
+
+model UserFinancialProfile {
+  id     String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId String @unique @map("user_id") @db.Uuid
+
+  householdIncome Decimal? @map("household_income") @db.Decimal(12, 2)
+  familySize      Int?     @map("family_size")
+
+  savings     Decimal? @db.Decimal(12, 2)
+  investments Decimal? @db.Decimal(12, 2)
+
+  collegeSavings529 Decimal? @map("college_savings_529") @db.Decimal(12, 2)
+
+  expectedFamilyContribution Decimal? @map("expected_family_contribution") @db.Decimal(10, 2)
+
+  eligibleForPellGrant Boolean @default(false) @map("eligible_for_pell_grant")
+  eligibleForStateAid  Boolean @default(false) @map("eligible_for_state_aid")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("user_financial_profiles")
+}
+
+model Notification {
+  id     String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+
+  type    String @db.VarChar(50)
+  title   String @db.VarChar(255)
+  message String @db.Text
+
+  link String? @db.VarChar(500)
+
+  read   Boolean   @default(false)
+  readAt DateTime? @map("read_at") @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([read])
+  @@index([createdAt(sort: Desc)])
+  @@map("notifications")
+}
+
+model UserPreference {
+  userId         String   @id @map("user_id") @db.Uuid
+  weightTuition  Decimal  @default(0.5) @map("weight_tuition") @db.Decimal(4, 3)
+  weightLocation Decimal  @default(0.5) @map("weight_location") @db.Decimal(4, 3)
+  weightRanking  Decimal  @default(0.5) @map("weight_ranking") @db.Decimal(4, 3)
+  weightProgram  Decimal  @default(0.5) @map("weight_program") @db.Decimal(4, 3)
+  weightLanguage Decimal  @default(0.5) @map("weight_language") @db.Decimal(4, 3)
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
+}
+
+// ========================================
+// TAXONOMY TABLES
+// ========================================
+
+model Taxonomy {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key         String   @unique @db.Text
+  name        String   @db.Text
+  description String?  @db.Text
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  terms TaxonomyTerm[]
+
+  @@index([key])
+  @@map("taxonomies")
+}
+
+model TaxonomyTerm {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  taxonomyId  String   @map("taxonomy_id") @db.Uuid
+  name        String   @db.Text
+  slug        String   @db.Text
+  description String?  @db.Text
+  color       String?  @db.Text
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  taxonomy Taxonomy      @relation(fields: [taxonomyId], references: [id], onDelete: Cascade)
+  articles ArticleTerm[]
+
+  @@unique([taxonomyId, slug])
+  @@index([taxonomyId])
+  @@map("taxonomy_terms")
+}
+
+model ArticleTerm {
+  articleId String @map("article_id") @db.Uuid
+  termId    String @map("term_id") @db.Uuid
+
+  article Article      @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  term    TaxonomyTerm @relation(fields: [termId], references: [id], onDelete: Cascade)
+
+  @@id([articleId, termId])
+  @@index([articleId])
+  @@index([termId])
+  @@map("article_terms")
+}
+
+// ========================================
+// FEATURE ACCESS TABLES
+// ========================================
+
+model Plan {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String   @db.Text
+  key       String   @unique @db.Text
+  price     Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  features PlanFeature[]
+
+  @@map("plans")
+}
+
+model Feature {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String   @db.Text
+  key         String   @unique @db.Text
+  description String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  planFeatures   PlanFeature[]
+  userUsage      UserFeatureUsage[]
+  anonymousUsage AnonymousFeatureUsage[]
+
+  @@map("features")
+}
+
+model PlanFeature {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  planId      String    @map("plan_id") @db.Uuid
+  featureKey  String    @map("feature_key") @db.Text
+  accessLevel LimitType @default(count) @map("access_level")
+  limitValue  Int       @default(0) @map("limit_value")
+
+  plan    Plan    @relation(fields: [planId], references: [id], onDelete: Cascade)
+  feature Feature @relation(fields: [featureKey], references: [key], onDelete: Cascade)
+
+  @@unique([planId, featureKey])
+  @@map("plan_features")
+}
+
+model UserFeatureUsage {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  featureKey String   @map("feature_key") @db.Text
+  usedAt     DateTime @default(now()) @map("used_at") @db.Timestamptz(6)
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  feature Feature @relation(fields: [featureKey], references: [key], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([featureKey])
+  @@map("user_feature_usage")
+}
+
+model AnonymousFeatureUsage {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  identifier String   @db.Text
+  featureKey String   @map("feature_key") @db.Text
+  usedAt     DateTime @default(now()) @map("used_at") @db.Timestamptz(6)
+
+  feature Feature @relation(fields: [featureKey], references: [key], onDelete: Cascade)
+
+  @@index([identifier])
+  @@index([featureKey])
+  @@map("anonymous_feature_usage")
+}
+
+// ========================================
+// SETTINGS & ANALYTICS
+// ========================================
+
+model SiteSetting {
+  key         String   @id @map("key") @db.VarChar(100)
+  value       String   @db.Text
+  type        String   @default("string") @db.VarChar(20)
+  description String?  @db.Text
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("site_settings")
+}
+
+model ArticlePerformanceStat {
+  id        Int      @id @default(autoincrement())
+  articleId String   @map("article_id") @db.Uuid
+  date      DateTime @default(now()) @db.Date
+  views     Int      @default(0)
+  likes     Int      @default(0)
+  comments  Int      @default(0)
+  shares    Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@unique([articleId, date])
+  @@index([articleId, date])
+  @@index([date])
+  @@map("article_performance_stats")
+}

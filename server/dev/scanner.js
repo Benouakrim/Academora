@@ -1,6 +1,6 @@
 import fs from 'fs'
 import path from 'path'
-import supabase from '../database/supabase.js'
+import prisma from '../database/prisma.js'
 
 function safeStat(p){ try { return fs.statSync(p) } catch { return null } }
 
@@ -70,41 +70,61 @@ export async function runDevScan(){
   // DB fetches (best-effort)
   let users = [], articles = [], universities = [], pages = [], groups = [], orientationResources = [], orientationCategories = [], tags = [], categories = []
   try {
-    const ur = await supabase.from('users').select('id, username, email, full_name').limit(500)
-    users = ur.data || []
-  } catch {}
+    const userResults = await prisma.user.findMany({
+      select: { id: true, username: true, email: true, firstName: true, lastName: true },
+      take: 500
+    })
+    users = userResults.map(u => ({ 
+      id: u.id, 
+      username: u.username, 
+      email: u.email, 
+      first_name: u.firstName, 
+      last_name: u.lastName,
+      full_name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || null 
+    }))
+  } catch (e) { console.error('Scanner: users error', e.message) }
   try {
-    const ar = await supabase.from('articles').select('id, slug, title, published, content').limit(1000)
-    articles = (ar.data || []).map(a => ({ id: a.id, slug: a.slug, title: a.title, published: a.published, _content: typeof a.content === 'string' ? a.content : null }))
-  } catch {}
+    const articleResults = await prisma.article.findMany({
+      select: { id: true, slug: true, title: true, published: true, content: true },
+      take: 1000
+    })
+    articles = articleResults.map(a => ({ 
+      id: a.id, 
+      slug: a.slug, 
+      title: a.title, 
+      published: a.published, 
+      _content: typeof a.content === 'string' ? a.content : null 
+    }))
+  } catch (e) { console.error('Scanner: articles error', e.message) }
   try {
-    const uni = await supabase.from('universities').select('id, slug, name').limit(1000)
-    universities = uni.data || []
-  } catch {}
+    const uniResults = await prisma.university.findMany({
+      select: { id: true, slug: true, name: true },
+      take: 1000
+    })
+    universities = uniResults.map(u => ({ id: u.id, slug: u.slug, name: u.name }))
+  } catch (e) { console.error('Scanner: universities error', e.message) }
   try {
-    const sp = await supabase.from('static_pages').select('slug, title, status').limit(1000)
-    pages = sp.data || []
-  } catch {}
+    const pageResults = await prisma.staticPage.findMany({
+      select: { slug: true, title: true, published: true },
+      take: 1000
+    })
+    pages = pageResults.map(p => ({ slug: p.slug, title: p.title, status: p.published }))
+  } catch (e) { console.error('Scanner: pages error', e.message) }
   try {
-    const gr = await supabase.from('university_groups').select('id, slug, name').limit(1000)
-    groups = gr.data || []
-  } catch {}
+    const groupResults = await prisma.universityGroup.findMany({
+      select: { id: true, slug: true, name: true },
+      take: 1000
+    })
+    groups = groupResults.map(g => ({ id: g.id, slug: g.slug, name: g.name }))
+  } catch (e) { console.error('Scanner: groups error', e.message) }
   try {
-    const oc = await supabase.from('orientation_categories').select('id, slug, title').limit(1000)
-    orientationCategories = oc.data || []
-  } catch {}
-  try {
-    const orr = await supabase.from('orientation_resources').select('id, category, slug, title').limit(2000)
-    orientationResources = orr.data || []
-  } catch {}
-  try {
-    const tg = await supabase.from('tags').select('id, name, slug').limit(1000)
-    tags = tg.data || []
-  } catch {}
-  try {
-    const cg = await supabase.from('categories').select('id, name, slug').limit(1000)
-    categories = cg.data || []
-  } catch {}
+    const orrResults = await prisma.orientationResource.findMany({
+      select: { id: true, category: true, slug: true, title: true },
+      take: 2000
+    })
+    orientationResources = orrResults.map(r => ({ id: r.id, category: r.category, slug: r.slug, title: r.title }))
+  } catch (e) { console.error('Scanner: orientation resources error', e.message) }
+  // Note: Taxonomies don't have a 'type' field in the schema, skipping orientation categories, tags, categories
 
   const now = new Date().toISOString()
   const result = {

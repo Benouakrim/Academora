@@ -1,5 +1,5 @@
 import express from 'express';
-import pool from '../database/supabase.js';
+import pool from '../database/pool.js';
 import { parseUserToken, requireAdmin } from '../middleware/auth.js';
 import { siteSettings } from '../data/siteSettings.js';
 
@@ -70,7 +70,7 @@ router.get('/reviewed', parseUserToken, requireAdmin, async (req, res) => {
 // Get single article for review
 router.get('/:id', parseUserToken, requireAdmin, async (req, res) => {
   try {
-    const articleId = parseInt(req.params.id);
+    const articleId = req.params.id; // UUID, not integer
 
     const result = await pool.query(
       `SELECT 
@@ -106,7 +106,7 @@ router.get('/:id', parseUserToken, requireAdmin, async (req, res) => {
 // Approve article
 router.post('/:id/approve', parseUserToken, requireAdmin, async (req, res) => {
   try {
-    const articleId = parseInt(req.params.id);
+    const articleId = req.params.id; // UUID, not integer
     const adminId = req.user.id;
     const { publish_immediately } = req.body;
 
@@ -143,7 +143,7 @@ router.post('/:id/approve', parseUserToken, requireAdmin, async (req, res) => {
 // Reject article
 router.post('/:id/reject', parseUserToken, requireAdmin, async (req, res) => {
   try {
-    const articleId = parseInt(req.params.id);
+    const articleId = req.params.id; // UUID, not integer
     const adminId = req.user.id;
     const { reason } = req.body;
 
@@ -177,10 +177,10 @@ router.post('/:id/reject', parseUserToken, requireAdmin, async (req, res) => {
   }
 });
 
-// Publish approved article
+// Publish an approved article
 router.post('/:id/publish', parseUserToken, requireAdmin, async (req, res) => {
   try {
-    const articleId = parseInt(req.params.id);
+    const articleId = req.params.id; // UUID, not integer
 
     const result = await pool.query(
       `UPDATE articles SET

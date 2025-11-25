@@ -1,6 +1,6 @@
 import express from 'express';
 import { parseUserToken, requireUser } from '../middleware/auth.js';
-import { supabase } from '../database/supabase.js';
+import pool from '../database/pool.js';
 
 const router = express.Router();
 
@@ -13,30 +13,35 @@ router.get('/export', async (req, res) => {
     const userId = req.user.id;
 
     // Fetch user profile
-    const { data: profile, error: profileError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', userId)
-      .single();
-
-    if (profileError) throw profileError;
+    const profileResult = await pool.query('SELECT * FROM users WHERE id = $1', [userId]);
+    if (profileResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const profile = profileResult.rows[0];
 
     // Fetch related data
     const [
-      { data: savedItems },
-      { data: savedMatches },
-      { data: reviews },
-      { data: notifications },
-      { data: financialProfile },
-      { data: onboarding },
+      savedItemsResult,
+      savedMatchesResult,
+      reviewsResult,
+      notificationsResult,
+      financialProfileResult,
+      onboardingResult,
     ] = await Promise.all([
-      supabase.from('saved_items').select('*').eq('user_id', userId),
-      supabase.from('saved_matches').select('*').eq('user_id', userId),
-      supabase.from('reviews').select('*').eq('user_id', userId),
-      supabase.from('notifications').select('*').eq('user_id', userId),
-      supabase.from('user_financial_profiles').select('*').eq('user_id', userId).maybeSingle(),
-      supabase.from('user_onboarding_data').select('*').eq('user_id', userId).maybeSingle(),
+      pool.query('SELECT * FROM saved_items WHERE user_id = $1', [userId]),
+      pool.query('SELECT * FROM saved_matches WHERE user_id = $1', [userId]),
+      pool.query('SELECT * FROM reviews WHERE user_id = $1', [userId]),
+      pool.query('SELECT * FROM notifications WHERE user_id = $1', [userId]),
+      pool.query('SELECT * FROM user_financial_profiles WHERE user_id = $1', [userId]),
+      pool.query('SELECT * FROM user_onboarding_data WHERE user_id = $1', [userId]),
     ]);
+
+    const savedItems = savedItemsResult.rows;
+    const savedMatches = savedMatchesResult.rows;
+    const reviews = reviewsResult.rows;
+    const notifications = notificationsResult.rows;
+    const financialProfile = financialProfileResult.rows[0] || null;
+    const onboarding = onboardingResult.rows[0] || null;
 
     // Compile export
     const exportData = {

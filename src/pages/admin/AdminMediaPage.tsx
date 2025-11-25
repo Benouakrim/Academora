@@ -318,8 +318,8 @@ export default function AdminMediaPage() {
       setUploadingVideo(true)
       const result = await uploadAPI.uploadVideo(file)
       if (result?.videoUrl) {
-        const absolute = toAbsolute(result.videoUrl, apiOrigin)
-        setForm((prev) => ({ ...prev, video_url: absolute }))
+        // Cloudinary returns full URL, no need to prefix
+        setForm((prev) => ({ ...prev, video_url: result.videoUrl }))
       }
     } catch (err: any) {
       console.error(err)
@@ -334,8 +334,8 @@ export default function AdminMediaPage() {
       setUploadingThumbnail(true)
       const result = await uploadAPI.uploadImage(file)
       if (result?.imageUrl) {
-        const absolute = toAbsolute(result.imageUrl, apiOrigin)
-        setForm((prev) => ({ ...prev, thumbnail_url: absolute }))
+        // Cloudinary returns full URL, no need to prefix
+        setForm((prev) => ({ ...prev, thumbnail_url: result.imageUrl }))
       }
     } catch (err: any) {
       console.error(err)

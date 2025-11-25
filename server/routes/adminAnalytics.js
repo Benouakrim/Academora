@@ -1,5 +1,5 @@
 import express from 'express';
-import supabase from '../database/supabase.js';
+import pool from '../database/pool.js';
 import { parseUserToken, requireAdmin } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -10,17 +10,17 @@ router.use(requireAdmin);
 router.get('/overview', async (req, res) => {
   try {
     const [usersCountRes, unisCountRes, reviewsCountRes, savedCountRes] = await Promise.all([
-      supabase.from('users').select('id', { count: 'exact', head: true }),
-      supabase.from('universities').select('id', { count: 'exact', head: true }),
-      supabase.from('reviews').select('id', { count: 'exact', head: true }),
-      supabase.from('saved_matches').select('id', { count: 'exact', head: true }),
+      pool.query('SELECT COUNT(*) as count FROM users'),
+      pool.query('SELECT COUNT(*) as count FROM universities'),
+      pool.query('SELECT COUNT(*) as count FROM reviews'),
+      pool.query('SELECT COUNT(*) as count FROM saved_matches'),
     ]);
 
     res.json({
-      users: usersCountRes.count || 0,
-      universities: unisCountRes.count || 0,
-      reviews: reviewsCountRes.count || 0,
-      saved_matches: savedCountRes.count || 0,
+      users: parseInt(usersCountRes.rows[0].count) || 0,
+      universities: parseInt(unisCountRes.rows[0].count) || 0,
+      reviews: parseInt(reviewsCountRes.rows[0].count) || 0,
+      saved_matches: parseInt(savedCountRes.rows[0].count) || 0,
     });
   } catch (err) {
     console.error('Analytics overview error:', err);
@@ -32,11 +32,10 @@ router.get('/registrations/last7', async (req, res) => {
   try {
     const since = new Date();
     since.setDate(since.getDate() - 7);
-    const { data, error } = await supabase
-      .from('users')
-      .select('created_at')
-      .gte('created_at', since.toISOString());
-    if (error) throw error;
+    const result = await pool.query(
+      'SELECT created_at FROM users WHERE created_at >= $1',
+      [since.toISOString()]
+    );
 
     const buckets = Array.from({ length: 7 }).map((_, i) => {
       const d = new Date();
@@ -45,11 +44,12 @@ router.get('/registrations/last7', async (req, res) => {
       return { date: key, count: 0 };
     });
 
-    for (const row of data || []) {
-      const key = String(row.created_at).slice(0, 10);
-      const bucket = buckets.find((b) => b.date === key);
+    result.rows.forEach((row) => {
+      const dateKey = new Date(row.created_at).toISOString().slice(0, 10);
+      const bucket = buckets.find((b) => b.date === dateKey);
       if (bucket) bucket.count++;
-    }
+    });
+
     res.json(buckets);
   } catch (err) {
     console.error('Registrations error:', err);
@@ -58,5 +58,3 @@ router.get('/registrations/last7', async (req, res) => {
 });
 
 export default router;
-
-

@@ -40,8 +40,8 @@ export default function ImageUpload({
 
     try {
       const result = await uploadAPI.uploadImage(file);
-      const fullUrl = `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3001'}${result.imageUrl}`;
-      onChange(fullUrl);
+      // Cloudinary returns full URL, no need to prefix
+      onChange(result.imageUrl);
     } catch (err: any) {
       setError(err.message || 'Failed to upload image');
     } finally {

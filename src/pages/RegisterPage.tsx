@@ -1,6 +1,7 @@
 import { ComponentType, FormEvent, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Building, GraduationCap, Landmark, MinusCircle, Plus, ShieldCheck, Sparkles, Users } from 'lucide-react'
+import { useAuth } from '@clerk/clerk-react'
 import { onboardingAPI } from '../lib/api'
 
 const classNames = (...classes: (string | false | null | undefined)[]) => classes.filter(Boolean).join(' ')
@@ -439,11 +440,19 @@ Object.values(CONTACT_GROUP_CONFIG).forEach((config) => {
 
 export default function RegisterPage() {
   const navigate = useNavigate()
+  const { isSignedIn, isLoaded } = useAuth()
   const [searchParams] = useSearchParams()
   const accountTypeParam = (searchParams.get('type') || '').toLowerCase() as AccountTypeKey | ''
   const selectedType = useMemo(() => ACCOUNT_TYPE_CONFIG[accountTypeParam as AccountTypeKey], [accountTypeParam])
   const [currentStepIndex, setCurrentStepIndex] = useState(0)
   const [formData, setFormData] = useState<FormDataState>(baseFormData)
+
+  // Redirect to signup if not authenticated (Clerk)
+  useEffect(() => {
+    if (isLoaded && !isSignedIn) {
+      navigate('/signup', { replace: true })
+    }
+  }, [isLoaded, isSignedIn, navigate])
   const [contactFieldCounts, setContactFieldCounts] = useState<Record<ContactGroupKey, number>>({
     individualEmail: CONTACT_GROUP_CONFIG.individualEmail.min,
     individualPhone: CONTACT_GROUP_CONFIG.individualPhone.min,

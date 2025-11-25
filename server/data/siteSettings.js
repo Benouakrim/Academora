@@ -1,14 +1,14 @@
-import pool from '../database/supabase.js';
+import prisma from '../database/prisma.js';
 
 export const siteSettings = {
   // Get a setting value
   async getSetting(key) {
     try {
-      const result = await pool.query(
-        'SELECT setting_value FROM site_settings WHERE setting_key = $1',
-        [key]
-      );
-      return result.rows[0]?.setting_value || null;
+      const setting = await prisma.siteSetting.findUnique({
+        where: { key },
+        select: { value: true },
+      });
+      return setting?.value || null;
     } catch (error) {
       console.error('Error fetching setting:', error);
       throw error;
@@ -18,10 +18,15 @@ export const siteSettings = {
   // Get all settings
   async getAllSettings() {
     try {
-      const result = await pool.query(
-        'SELECT setting_key, setting_value, description FROM site_settings ORDER BY setting_key'
-      );
-      return result.rows;
+      const settings = await prisma.siteSetting.findMany({
+        orderBy: { key: 'asc' },
+        select: {
+          key: true,
+          value: true,
+          description: true,
+        },
+      });
+      return settings;
     } catch (error) {
       console.error('Error fetching settings:', error);
       throw error;
@@ -31,15 +36,19 @@ export const siteSettings = {
   // Update a setting
   async updateSetting(key, value) {
     try {
-      const result = await pool.query(
-        `INSERT INTO site_settings (setting_key, setting_value, updated_at)
-         VALUES ($1, $2, CURRENT_TIMESTAMP)
-         ON CONFLICT (setting_key) 
-         DO UPDATE SET setting_value = $2, updated_at = CURRENT_TIMESTAMP
-         RETURNING *`,
-        [key, value]
-      );
-      return result.rows[0];
+      const setting = await prisma.siteSetting.upsert({
+        where: { key },
+        update: {
+          value,
+          updatedAt: new Date(),
+        },
+        create: {
+          key,
+          value,
+          type: 'string',
+        },
+      });
+      return setting;
     } catch (error) {
       console.error('Error updating setting:', error);
       throw error;

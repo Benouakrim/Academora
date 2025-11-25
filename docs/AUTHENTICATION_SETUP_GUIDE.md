@@ -11,20 +11,17 @@ All code changes have been implemented:
 - ✅ Frontend components updated (Navbar & Dashboard check role)
 - ✅ Admin user creation script created
 
-## 📋 Required Supabase Setup
+## 📋 Required Database Setup
 
 ### Step 1: Add Role Column to Users Table
 
-You need to run SQL in Supabase to add the `role` column:
+You need to run SQL in your PostgreSQL database to add the `role` column:
 
-1. Go to **Supabase Dashboard** → Your Project
-2. Navigate to **SQL Editor** (left sidebar)
-3. Click **New Query**
-4. Open the file `server/database/add-role-column.sql` from your project
-5. Copy ALL the SQL code
-6. Paste into the SQL Editor
-7. Click **Run** (or press Ctrl+Enter / Cmd+Enter)
-8. You should see "Success" message
+1. Connect to your PostgreSQL database (using psql, pgAdmin, or your provider's SQL editor)
+2. Open the file `server/database/add-role-column.sql` from your project
+3. Copy ALL the SQL code
+4. Execute the SQL in your database
+5. You should see "Success" message
 
 **What this does:**
 - Adds `role` column to `users` table (default: 'user')

@@ -1,5 +1,5 @@
--- Supabase Database Schema for AcademOra
--- Run this SQL in your Supabase SQL Editor (Dashboard > SQL Editor)
+-- PostgreSQL Database Schema for AcademOra
+-- Run this SQL in your PostgreSQL database (using psql, pgAdmin, or your provider's SQL editor)
 
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";

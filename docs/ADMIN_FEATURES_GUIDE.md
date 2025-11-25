@@ -40,14 +40,13 @@ This guide explains the new admin features for article management with SEO setti
 - **User Dashboard**: Added "Write New Article" button for admins
 - **Quick Access**: Easy navigation to admin features
 
-## 📋 Required Supabase Setup
+## 📋 Required Database Setup
 
 ### Step 1: Add SEO Columns to Articles Table
 
-Run this SQL in Supabase SQL Editor:
+Run this SQL in your PostgreSQL database:
 
-1. Go to **Supabase Dashboard** → Your Project
-2. Navigate to **SQL Editor** (left sidebar)
+1. Connect to your PostgreSQL database (using psql, pgAdmin, or your provider's SQL editor)
 3. Click **New Query**
 4. Open the file `server/database/add-seo-columns.sql` from your project
 5. Copy ALL the SQL code

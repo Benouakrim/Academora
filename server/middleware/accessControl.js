@@ -1,62 +1,57 @@
-import { supabase } from '../database/supabase.js';
+import prisma from '../database/prisma.js';
 
 const resolvePlanContext = async (user) => {
   if (!user) {
     return { planKey: 'anonymous', planId: null };
   }
 
-  if (!user.plan_id) {
+  if (!user.planId) {
     return { planKey: 'free', planId: null };
   }
 
   try {
-    const { data, error } = await supabase
-      .from('plans')
-      .select('id, key')
-      .eq('id', user.plan_id)
-      .maybeSingle();
-
-    if (error) {
-      console.error('Failed to resolve plan for user:', error);
-      return { planKey: 'free', planId: user.plan_id };
+    const plan = await prisma.plan.findUnique({
+      where: { id: user.planId },
+      select: { id: true, key: true }
+    });
+    
+    if (!plan) {
+      return { planKey: 'free', planId: user.planId };
     }
-
+    
     return {
-      planKey: data?.key || 'free',
-      planId: data?.id || user.plan_id,
+      planKey: plan.key || 'free',
+      planId: plan.id || user.planId,
     };
   } catch (err) {
     console.error('Unexpected error resolving plan:', err);
-    return { planKey: 'free', planId: user.plan_id };
+    return { planKey: 'free', planId: user.planId };
   }
 };
 
 const fetchPlanLimit = async (planKey, featureKey) => {
   try {
-    const { data: plan, error: planError } = await supabase
-      .from('plans')
-      .select('id')
-      .eq('key', planKey)
-      .maybeSingle();
-
-    if (planError || !plan) {
-      if (planError) console.error('Error fetching plan:', planError);
+    const plan = await prisma.plan.findFirst({
+      where: { key: planKey },
+      select: { id: true }
+    });
+    
+    if (!plan) {
       return null;
     }
 
-    const { data: limits, error: limitsError } = await supabase
-      .from('plan_features')
-      .select('access_level, limit_value')
-      .eq('plan_id', plan.id)
-      .eq('feature_key', featureKey)
-      .maybeSingle();
+    const planFeature = await prisma.planFeature.findFirst({
+      where: {
+        planId: plan.id,
+        featureKey: featureKey
+      },
+      select: {
+        accessLevel: true,
+        limitValue: true
+      }
+    });
 
-    if (limitsError) {
-      console.error('Error fetching plan limits:', limitsError);
-      return null;
-    }
-
-    return limits || null;
+    return planFeature || null;
   } catch (error) {
     console.error('Unexpected error fetching plan limits:', error);
     return null;
@@ -65,19 +60,9 @@ const fetchPlanLimit = async (planKey, featureKey) => {
 
 const fetchUserOverride = async (userId, featureKey) => {
   try {
-    const { data, error } = await supabase
-      .from('user_feature_overrides')
-      .select('access_level, limit_value')
-      .eq('user_id', userId)
-      .eq('feature_key', featureKey)
-      .maybeSingle();
-
-    if (error) {
-      console.error('Error fetching user override:', error);
-      return null;
-    }
-
-    return data || null;
+    // User feature overrides table doesn't exist in current schema
+    // Return null for now - can be added later if needed
+    return null;
   } catch (err) {
     console.error('Unexpected error fetching user override:', err);
     return null;
@@ -87,16 +72,16 @@ const fetchUserOverride = async (userId, featureKey) => {
 const buildEffectiveLimit = (planLimit, override) => {
   if (override) {
     return {
-      access_level: override.access_level,
-      limit_value: override.limit_value ?? 0,
+      accessLevel: override.accessLevel,
+      limitValue: override.limitValue ?? 0,
       source: 'override',
     };
   }
 
   if (planLimit) {
     return {
-      access_level: planLimit.access_level,
-      limit_value: planLimit.limit_value ?? 0,
+      accessLevel: planLimit.accessLevel,
+      limitValue: planLimit.limitValue ?? 0,
       source: 'plan',
     };
   }
@@ -104,18 +89,30 @@ const buildEffectiveLimit = (planLimit, override) => {
   return null;
 };
 
-const getUsageCount = async ({ table, identifierColumn, identifier, featureKey }) => {
-  const { count, error } = await supabase
-    .from(table)
-    .select('id', { count: 'exact', head: true })
-    .eq(identifierColumn, identifier)
-    .eq('feature_key', featureKey);
-
-  if (error) {
-    throw error;
+const getUsageCount = async ({ userId, identifier, featureKey }) => {
+  try {
+    if (userId) {
+      const count = await prisma.userFeatureUsage.count({
+        where: {
+          userId: userId,
+          featureKey: featureKey
+        }
+      });
+      return count;
+    } else if (identifier) {
+      const count = await prisma.anonymousFeatureUsage.count({
+        where: {
+          identifier: identifier,
+          featureKey: featureKey
+        }
+      });
+      return count;
+    }
+    return 0;
+  } catch (error) {
+    console.error('Error getting usage count:', error);
+    return 0;
   }
-
-  return count || 0;
 };
 
 const formatLimitResponse = (limit, usageCount) => {
@@ -130,15 +127,15 @@ const formatLimitResponse = (limit, usageCount) => {
     };
   }
 
-  const isUnlimited = limit.access_level === 'unlimited';
+  const isUnlimited = limit.accessLevel === 'unlimited';
   const remaining = isUnlimited
     ? null
-    : Math.max((limit.limit_value ?? 0) - usageCount, 0);
+    : Math.max((limit.limitValue ?? 0) - usageCount, 0);
 
   return {
     configured: true,
-    accessLevel: limit.access_level,
-    limitValue: limit.limit_value ?? 0,
+    accessLevel: limit.accessLevel,
+    limitValue: limit.limitValue ?? 0,
     remaining,
     used: usageCount,
     source: limit.source,
@@ -166,20 +163,17 @@ export const checkFeatureAccess = (featureKey) => {
         });
       }
 
-      if (effectiveLimit.access_level === 'unlimited') {
+      if (effectiveLimit.accessLevel === 'unlimited') {
         return next();
       }
 
-      const usageTable = req.user ? 'user_feature_usage' : 'anonymous_feature_usage';
-      const idColumn = req.user ? 'user_id' : 'identifier';
       const usageCount = await getUsageCount({
-        table: usageTable,
-        identifierColumn: idColumn,
-        identifier,
+        userId: req.user?.id,
+        identifier: req.user ? null : req.ip,
         featureKey,
       });
 
-      if (usageCount >= (effectiveLimit.limit_value ?? 0)) {
+      if (usageCount >= (effectiveLimit.limitValue ?? 0)) {
         const code = req.user ? 'UPGRADE_REQUIRED' : 'LOGIN_REQUIRED';
         const message = req.user
           ? "You've reached your limit for this feature. Upgrade to a Pro plan for unlimited access."
@@ -205,14 +199,20 @@ export const logUsage = (featureKey) => {
     res.on('finish', async () => {
       if (res.statusCode >= 200 && res.statusCode < 300) {
         try {
-          const usageTable = req.user ? 'user_feature_usage' : 'anonymous_feature_usage';
-          const record = req.user
-            ? { user_id: req.user.id, feature_key: featureKey }
-            : { identifier: req.ip, feature_key: featureKey };
-
-          const { error } = await supabase.from(usageTable).insert(record);
-          if (error) {
-            console.error('Failed to log usage:', error);
+          if (req.user) {
+            await prisma.userFeatureUsage.create({
+              data: {
+                userId: req.user.id,
+                featureKey: featureKey
+              }
+            });
+          } else {
+            await prisma.anonymousFeatureUsage.create({
+              data: {
+                identifier: req.ip || 'unknown',
+                featureKey: featureKey
+              }
+            });
           }
         } catch (err) {
           console.error('Exception in logUsage:', err);
@@ -230,15 +230,10 @@ export const getFeatureUsageSummary = async ({ user, ip, featureKey }) => {
   const override = user ? await fetchUserOverride(user.id, featureKey) : null;
   const effectiveLimit = buildEffectiveLimit(planLimit, override);
 
-  const usageTable = user ? 'user_feature_usage' : 'anonymous_feature_usage';
-  const idColumn = user ? 'user_id' : 'identifier';
-  const identifier = user ? user.id : ip;
-
   if (user?.role === 'admin') {
     const usageCount = await getUsageCount({
-      table: usageTable,
-      identifierColumn: idColumn,
-      identifier,
+      userId: user.id,
+      identifier: null,
       featureKey,
     });
     return {
@@ -254,9 +249,8 @@ export const getFeatureUsageSummary = async ({ user, ip, featureKey }) => {
 
   try {
     const usageCount = await getUsageCount({
-      table: usageTable,
-      identifierColumn: idColumn,
-      identifier,
+      userId: user?.id,
+      identifier: user ? null : ip,
       featureKey,
     });
 
@@ -271,46 +265,34 @@ export const getFeatureUsageSummary = async ({ user, ip, featureKey }) => {
 };
 
 export const resetFeatureUsage = async ({ userId, featureKey }) => {
-  const { error } = await supabase
-    .from('user_feature_usage')
-    .delete()
-    .eq('user_id', userId)
-    .eq('feature_key', featureKey);
-
-  if (error) {
+  try {
+    await prisma.userFeatureUsage.deleteMany({
+      where: {
+        userId: userId,
+        featureKey: featureKey
+      }
+    });
+  } catch (error) {
     throw error;
   }
 };
 
-export const upsertUserFeatureOverride = async ({ userId, featureKey, access_level, limit_value }) => {
-  const payload = {
-    user_id: userId,
-    feature_key: featureKey,
-    access_level,
-    limit_value,
-  };
-
-  const { data, error } = await supabase
-    .from('user_feature_overrides')
-    .upsert(payload, { onConflict: 'user_id, feature_key' })
-    .select()
-    .maybeSingle();
-
-  if (error) {
+export const upsertUserFeatureOverride = async ({ userId, featureKey, accessLevel, limitValue }) => {
+  try {
+    // User feature overrides table doesn't exist in current schema
+    // This would need to be added to the Prisma schema first
+    console.warn('upsertUserFeatureOverride: Table not implemented yet');
+    return null;
+  } catch (error) {
     throw error;
   }
-
-  return data;
 };
 
 export const deleteUserFeatureOverride = async ({ userId, featureKey }) => {
-  const { error } = await supabase
-    .from('user_feature_overrides')
-    .delete()
-    .eq('user_id', userId)
-    .eq('feature_key', featureKey);
-
-  if (error) {
+  try {
+    // User feature overrides table doesn't exist in current schema
+    console.warn('deleteUserFeatureOverride: Table not implemented yet');
+  } catch (error) {
     throw error;
   }
 };

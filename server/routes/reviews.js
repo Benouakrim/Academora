@@ -1,5 +1,5 @@
 import express from 'express';
-import supabase from '../database/supabase.js';
+import pool from '../database/pool.js';
 import { parseUserToken, requireUser } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { upsertReviewSchema } from '../validation/reviewsSchemas.js';
@@ -12,13 +12,14 @@ router.use(parseUserToken);
 router.get('/university/:id', async (req, res) => {
   try {
     const universityId = req.params.id;
-    const { data, error } = await supabase
-      .from('reviews')
-      .select('id, user_id, university_id, rating, comment, created_at')
-      .eq('university_id', universityId)
-      .order('created_at', { ascending: false });
-    if (error) throw error;
-    res.json(data || []);
+    const result = await pool.query(
+      `SELECT id, user_id, university_id, rating, comment, created_at 
+       FROM reviews 
+       WHERE university_id = $1 
+       ORDER BY created_at DESC`,
+      [universityId]
+    );
+    res.json(result.rows || []);
   } catch (err) {
     console.error('List reviews error:', err);
     res.status(500).json({ error: err.message || 'Failed to list reviews' });
@@ -34,13 +35,15 @@ router.post('/university/:id', requireUser, validate(upsertReviewSchema), async 
     if (!rating || rating < 1 || rating > 5) return res.status(400).json({ error: 'rating must be 1-5' });
 
     // Upsert by (user_id, university_id)
-    const { data, error } = await supabase
-      .from('reviews')
-      .upsert({ user_id: userId, university_id: universityId, rating, comment }, { onConflict: 'user_id,university_id' })
-      .select('*')
-      .single();
-    if (error) throw error;
-    res.json(data);
+    const result = await pool.query(
+      `INSERT INTO reviews (user_id, university_id, rating, comment)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (user_id, university_id)
+       DO UPDATE SET rating = $3, comment = $4, updated_at = CURRENT_TIMESTAMP
+       RETURNING *`,
+      [userId, universityId, rating, comment]
+    );
+    res.json(result.rows[0]);
   } catch (err) {
     console.error('Upsert review error:', err);
     res.status(500).json({ error: err.message || 'Failed to save review' });
@@ -52,12 +55,10 @@ router.delete('/university/:id', requireUser, async (req, res) => {
   try {
     const userId = req.user?.id;
     const universityId = req.params.id;
-    const { error } = await supabase
-      .from('reviews')
-      .delete()
-      .eq('user_id', userId)
-      .eq('university_id', universityId);
-    if (error) throw error;
+    await pool.query(
+      'DELETE FROM reviews WHERE user_id = $1 AND university_id = $2',
+      [userId, universityId]
+    );
     res.json({ success: true });
   } catch (err) {
     console.error('Delete review error:', err);

@@ -1,5 +1,5 @@
 import express from 'express';
-import supabase from '../database/supabase.js';
+import pool from '../database/pool.js';
 import { parseUserToken, requireUser } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -21,13 +21,11 @@ router.get('/:kind', async (req, res) => {
   try {
     const userId = req.user?.id;
 
-    const { data, error } = await supabase
-      .from(table)
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-    if (error) throw error;
-    res.json(data || []);
+    const result = await pool.query(
+      `SELECT * FROM ${table} WHERE user_id = $1 ORDER BY created_at DESC`,
+      [userId]
+    );
+    res.json(result.rows || []);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -41,13 +39,15 @@ router.post('/:kind', async (req, res) => {
     const userId = req.user?.id;
 
     const payload = { ...req.body, user_id: userId };
-    const { data, error } = await supabase
-      .from(table)
-      .insert([payload])
-      .select('*')
-      .single();
-    if (error) throw error;
-    res.json(data);
+    const columns = Object.keys(payload).join(', ');
+    const values = Object.values(payload);
+    const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
+
+    const result = await pool.query(
+      `INSERT INTO ${table} (${columns}) VALUES (${placeholders}) RETURNING *`,
+      values
+    );
+    res.json(result.rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -60,15 +60,19 @@ router.put('/:kind/:id', async (req, res) => {
   try {
     const userId = req.user?.id;
 
-    const { data, error } = await supabase
-      .from(table)
-      .update(req.body)
-      .eq('id', req.params.id)
-      .eq('user_id', userId)
-      .select('*')
-      .single();
-    if (error) throw error;
-    res.json(data);
+    const updates = req.body;
+    const setClause = Object.keys(updates).map((key, i) => `${key} = $${i + 2}`).join(', ');
+    const values = [req.params.id, ...Object.values(updates)];
+
+    const result = await pool.query(
+      `UPDATE ${table} SET ${setClause}, updated_at = CURRENT_TIMESTAMP WHERE id = $1 AND user_id = $${values.length + 1} RETURNING *`,
+      [...values, userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+    res.json(result.rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -81,12 +85,10 @@ router.delete('/:kind/:id', async (req, res) => {
   try {
     const userId = req.user?.id;
 
-    const { error } = await supabase
-      .from(table)
-      .delete()
-      .eq('id', req.params.id)
-      .eq('user_id', userId);
-    if (error) throw error;
+    await pool.query(
+      `DELETE FROM ${table} WHERE id = $1 AND user_id = $2`,
+      [req.params.id, userId]
+    );
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -94,5 +96,3 @@ router.delete('/:kind/:id', async (req, res) => {
 });
 
 export default router;
-
-

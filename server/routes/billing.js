@@ -1,7 +1,7 @@
 import express from 'express';
 import Stripe from 'stripe';
 import { parseUserToken, requireUser } from '../middleware/auth.js';
-import { supabase } from '../database/supabase.js';
+import prisma from '../database/prisma.js';
 
 const router = express.Router();
 
@@ -13,9 +13,16 @@ if (!stripeSecret) {
 }
 
 async function getPlanIdByKey(planKey) {
-  const { data, error } = await supabase.from('plans').select('id').eq('key', planKey).maybeSingle();
-  if (error || !data) return null;
-  return data.id;
+  try {
+    const plan = await prisma.plan.findUnique({
+      where: { key: planKey },
+      select: { id: true }
+    });
+    return plan?.id || null;
+  } catch (error) {
+    console.error('Error fetching plan by key:', error);
+    return null;
+  }
 }
 
 // Create checkout session for a plan
@@ -76,11 +83,17 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
       if (userId && planKey) {
         const planId = await getPlanIdByKey(planKey);
         if (planId) {
-          const { error } = await supabase
-            .from('users')
-            .update({ plan_id: planId, subscription_status: 'active' })
-            .eq('id', userId);
-          if (error) console.error('Failed to update user plan', error);
+          try {
+            await prisma.user.update({
+              where: { id: userId },
+              data: {
+                plan_id: planId,
+                subscription_status: 'active'
+              }
+            });
+          } catch (error) {
+            console.error('Failed to update user plan', error);
+          }
         }
       }
     }

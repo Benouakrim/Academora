@@ -1,6 +1,4 @@
-import supabase from '../database/supabase.js';
-
-const TABLE = 'user_financial_profiles';
+import prisma from '../database/prisma.js';
 
 const toNumberOrNull = (value) => {
   if (value === undefined || value === null || value === '') return null;
@@ -18,73 +16,65 @@ const toBooleanOrNull = (value) => {
   return Boolean(value);
 };
 
-const toStringArray = (value) => {
-  if (!value) return [];
-  if (Array.isArray(value)) {
-    return value
-      .map((entry) => (typeof entry === 'string' ? entry.trim() : ''))
-      .filter(Boolean);
-  }
-  if (typeof value === 'string') {
-    return value
-      .split(',')
-      .map((entry) => entry.trim())
-      .filter(Boolean);
-  }
-  return [];
-};
-
 const normalizeProfile = (record) => {
   if (!record) return null;
   return {
-    user_id: record.user_id,
-    gpa: record.gpa ?? null,
-    sat_score: record.sat_score ?? null,
-    act_score: record.act_score ?? null,
-    family_income: record.family_income ?? null,
-    international_student: record.international_student ?? null,
-    in_state: record.in_state ?? null,
-    first_generation: record.first_generation ?? null,
-    special_talents: Array.isArray(record.special_talents) ? record.special_talents : [],
-    created_at: record.created_at,
-    updated_at: record.updated_at,
+    user_id: record.userId,
+    household_income: record.householdIncome,
+    family_size: record.familySize,
+    savings: record.savings,
+    investments: record.investments,
+    college_savings_529: record.collegeSavings529,
+    expected_family_contribution: record.expectedFamilyContribution,
+    eligible_for_pell_grant: record.eligibleForPellGrant,
+    eligible_for_state_aid: record.eligibleForStateAid,
+    created_at: record.createdAt,
+    updated_at: record.updatedAt,
   };
 };
 
 export async function getFinancialProfile(userId) {
-  const { data, error } = await supabase
-    .from(TABLE)
-    .select('*')
-    .eq('user_id', userId)
-    .maybeSingle();
-
-  if (error) throw error;
-  return normalizeProfile(data);
+  try {
+    const profile = await prisma.userFinancialProfile.findUnique({
+      where: { userId },
+    });
+    return normalizeProfile(profile);
+  } catch (error) {
+    throw error;
+  }
 }
 
 export async function upsertFinancialProfile(userId, payload) {
-  const rawIncome = toNumberOrNull(payload?.family_income);
+  try {
+    const rawIncome = toNumberOrNull(payload?.household_income || payload?.family_income);
 
-  const updateData = {
-    user_id: userId,
-    gpa: toNumberOrNull(payload?.gpa),
-    sat_score: toNumberOrNull(payload?.sat_score),
-    act_score: toNumberOrNull(payload?.act_score),
-    family_income: rawIncome !== null ? Math.round(rawIncome) : null,
-    international_student: toBooleanOrNull(payload?.international_student),
-    in_state: toBooleanOrNull(payload?.in_state),
-    first_generation: toBooleanOrNull(payload?.first_generation),
-    special_talents: toStringArray(payload?.special_talents),
-  };
+    const profile = await prisma.userFinancialProfile.upsert({
+      where: { userId },
+      update: {
+        householdIncome: rawIncome !== null ? Math.round(rawIncome) : null,
+        familySize: toNumberOrNull(payload?.family_size),
+        savings: toNumberOrNull(payload?.savings),
+        investments: toNumberOrNull(payload?.investments),
+        collegeSavings529: toNumberOrNull(payload?.college_savings_529),
+        expectedFamilyContribution: toNumberOrNull(payload?.expected_family_contribution),
+        eligibleForPellGrant: toBooleanOrNull(payload?.eligible_for_pell_grant),
+        eligibleForStateAid: toBooleanOrNull(payload?.eligible_for_state_aid),
+      },
+      create: {
+        userId,
+        householdIncome: rawIncome !== null ? Math.round(rawIncome) : null,
+        familySize: toNumberOrNull(payload?.family_size),
+        savings: toNumberOrNull(payload?.savings),
+        investments: toNumberOrNull(payload?.investments),
+        collegeSavings529: toNumberOrNull(payload?.college_savings_529),
+        expectedFamilyContribution: toNumberOrNull(payload?.expected_family_contribution),
+        eligibleForPellGrant: toBooleanOrNull(payload?.eligible_for_pell_grant),
+        eligibleForStateAid: toBooleanOrNull(payload?.eligible_for_state_aid),
+      },
+    });
 
-  const { data, error } = await supabase
-    .from(TABLE)
-    .upsert(updateData, { onConflict: 'user_id' })
-    .select('*')
-    .single();
-
-  if (error) throw error;
-  return normalizeProfile(data);
+    return normalizeProfile(profile);
+  } catch (error) {
+    throw error;
+  }
 }
-
-

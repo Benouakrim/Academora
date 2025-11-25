@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { supabase } from '../database/supabase.js';
+import pool from '../database/pool.js';
 import { parseUserToken, requireAdmin } from '../middleware/auth.js';
 import {
   resetFeatureUsage,
@@ -13,39 +13,52 @@ router.use(parseUserToken, requireAdmin); // All routes here are admin-only
 
 // Get all plans
 router.get('/plans', async (req, res) => {
-  const { data, error } = await supabase.from('plans').select('*');
-  if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
+  try {
+    const result = await pool.query('SELECT * FROM plans ORDER BY created_at');
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Get all features
 router.get('/features', async (req, res) => {
-  const { data, error } = await supabase.from('features').select('*');
-  if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
+  try {
+    const result = await pool.query('SELECT * FROM features ORDER BY created_at');
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Get all rules (plan_features)
 router.get('/plan-features', async (req, res) => {
-  const { data, error } = await supabase.from('plan_features').select('*');
-  if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
+  try {
+    const result = await pool.query('SELECT * FROM plan_features ORDER BY plan_id, feature_key');
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Update or Create a plan-feature rule
 router.post('/plan-features', async (req, res) => {
-  const { plan_id, feature_key, access_level, limit_value } = req.body;
+  try {
+    const { plan_id, feature_key, access_level, limit_value } = req.body;
 
-  const { data, error } = await supabase
-    .from('plan_features')
-    .upsert(
-      { plan_id, feature_key, access_level, limit_value },
-      { onConflict: 'plan_id, feature_key' }
-    )
-    .select();
+    const result = await pool.query(
+      `INSERT INTO plan_features (plan_id, feature_key, access_level, limit_value)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (plan_id, feature_key)
+       DO UPDATE SET access_level = $3, limit_value = $4
+       RETURNING *`,
+      [plan_id, feature_key, access_level, limit_value]
+    );
 
-  if (error) return res.status(500).json({ error: error.message });
-  res.json(data[0]);
+    res.json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Aggregate usage for admins
@@ -53,47 +66,55 @@ router.get('/usage', async (req, res) => {
   try {
     const { userId, featureKey } = req.query;
 
-    const usersQuery = supabase
-      .from('users')
-      .select('id, email, full_name, plan_id');
-    if (userId) usersQuery.eq('id', userId);
-    const { data: users, error: usersError } = await usersQuery;
-    if (usersError) return res.status(500).json({ error: usersError.message });
+    let usersQuery = 'SELECT id, email, first_name, last_name, plan_id FROM users';
+    const usersParams = [];
+    if (userId) {
+      usersQuery += ' WHERE id = $1';
+      usersParams.push(userId);
+    }
+    const usersResult = await pool.query(usersQuery, usersParams);
+    const users = usersResult.rows;
 
     if (!users || users.length === 0) {
       return res.json([]);
     }
 
-    const { data: features, error: featuresError } = await supabase
-      .from('features')
-      .select('key, name');
-    if (featuresError) return res.status(500).json({ error: featuresError.message });
+    const featuresResult = await pool.query('SELECT key, name FROM features');
+    const features = featuresResult.rows;
 
-    const { data: plans, error: plansError } = await supabase
-      .from('plans')
-      .select('id, key, name');
-    if (plansError) return res.status(500).json({ error: plansError.message });
+    const plansResult = await pool.query('SELECT id, key, name FROM plans');
+    const plans = plansResult.rows;
 
-    const { data: planFeatures, error: planFeaturesError } = await supabase
-      .from('plan_features')
-      .select('plan_id, feature_key, access_level, limit_value');
-    if (planFeaturesError) return res.status(500).json({ error: planFeaturesError.message });
+    const planFeaturesResult = await pool.query('SELECT plan_id, feature_key, access_level, limit_value FROM plan_features');
+    const planFeatures = planFeaturesResult.rows;
 
-    const overridesQuery = supabase
-      .from('user_feature_overrides')
-      .select('user_id, feature_key, access_level, limit_value');
-    if (userId) overridesQuery.eq('user_id', userId);
-    if (featureKey) overridesQuery.eq('feature_key', featureKey);
-    const { data: overrides, error: overridesError } = await overridesQuery;
-    if (overridesError) return res.status(500).json({ error: overridesError.message });
+    let overridesQuery = 'SELECT user_id, feature_key, access_level, limit_value FROM user_feature_overrides WHERE 1=1';
+    const overridesParams = [];
+    let paramCount = 1;
+    if (userId) {
+      overridesQuery += ` AND user_id = $${paramCount++}`;
+      overridesParams.push(userId);
+    }
+    if (featureKey) {
+      overridesQuery += ` AND feature_key = $${paramCount++}`;
+      overridesParams.push(featureKey);
+    }
+    const overridesResult = await pool.query(overridesQuery, overridesParams);
+    const overrides = overridesResult.rows;
 
-    const usageQuery = supabase
-      .from('user_feature_usage')
-      .select('user_id, feature_key');
-    if (userId) usageQuery.eq('user_id', userId);
-    if (featureKey) usageQuery.eq('feature_key', featureKey);
-    const { data: usageRows, error: usageError } = await usageQuery;
-    if (usageError) return res.status(500).json({ error: usageError.message });
+    let usageQuery = 'SELECT user_id, feature_key FROM user_feature_usage WHERE 1=1';
+    const usageParams = [];
+    paramCount = 1;
+    if (userId) {
+      usageQuery += ` AND user_id = $${paramCount++}`;
+      usageParams.push(userId);
+    }
+    if (featureKey) {
+      usageQuery += ` AND feature_key = $${paramCount++}`;
+      usageParams.push(featureKey);
+    }
+    const usageResult = await pool.query(usageQuery, usageParams);
+    const usageRows = usageResult.rows;
 
     const planById = new Map(plans?.map((plan) => [plan.id, plan]) || []);
     const freePlanId = plans?.find((plan) => plan.key === 'free')?.id || null;
@@ -157,7 +178,7 @@ router.get('/usage', async (req, res) => {
         results.push({
           user_id: user.id,
           email: user.email,
-          full_name: user.full_name,
+          full_name: `${user.first_name || ''} ${user.last_name || ''}`.trim() || null,
           plan_key: planKey,
           feature_key: key,
           feature_name: featureNameMap.get(key) || key,
@@ -245,4 +266,3 @@ router.delete('/overrides', async (req, res) => {
 });
 
 export default router;
-
