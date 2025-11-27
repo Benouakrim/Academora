@@ -1,6 +1,7 @@
 import express from 'express';
-import { parseUserToken, requireUser } from '../middleware/auth.js';
+import { parseUserToken, requireUser, ensureSyncedUser } from '../middleware/auth.js';
 import { updateUserProfile, updatePasswordById, getUserProfile } from '../data/users.js';
+import { clerkClient } from '@clerk/clerk-sdk-node';
 import { validate } from '../middleware/validate.js';
 import { updateProfileSchema, changePasswordSchema } from '../validation/profileSchemas.js';
 
@@ -9,6 +10,7 @@ const router = express.Router();
 // All routes require authentication
 router.use(parseUserToken);
 router.use(requireUser);
+router.use(ensureSyncedUser);
 
 // GET /api/profile - Get current user profile
 router.get('/', async (req, res) => {
@@ -96,6 +98,23 @@ router.put('/', validate(updateProfileSchema), async (req, res) => {
     if (show_activity !== undefined) updates.show_activity = show_activity;
 
     const updated = await updateUserProfile(req.user.id, updates);
+
+    // Optional push of first/last name back to Clerk to keep systems in sync
+    try {
+      const firstName = updates.given_name ?? null;
+      const lastName = updates.family_name ?? null;
+      const clerkId = req.user?.clerkId;
+      if (clerkId && (firstName !== null || lastName !== null)) {
+        await clerkClient.users.updateUser(clerkId, {
+          firstName: firstName ?? undefined,
+          lastName: lastName ?? undefined,
+        });
+      }
+    } catch (syncErr) {
+      // Non-blocking: log and continue
+      console.warn('Clerk sync (name update) skipped:', syncErr?.message || syncErr);
+    }
+
     res.json(updated);
   } catch (error) {
     res.status(500).json({ error: error.message });

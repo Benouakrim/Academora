@@ -43,22 +43,47 @@ export function setCurrentUser(user: unknown): void {
 // Generic fetch function with auth
 // Now supports Clerk tokens passed via headers
 async function fetchAPI(endpoint: string, options: RequestInit = {}) {
-  // Check if a Clerk token is passed in headers (from useAuth hook)
+  // Merge headers - prioritize explicitly passed headers
+  const inputHeaders = (options.headers as Record<string, string>) || {};
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...(options.headers as Record<string, string> || {}),
+    ...inputHeaders,
   };
 
-  // Use Clerk token if provided, otherwise fall back to legacy token
-  const clerkToken = headers['X-Clerk-Token'] || (options.headers as Record<string, string>)?.Authorization?.replace('Bearer ', '');
-  const token = clerkToken || getAuthToken();
+  // If Authorization header is explicitly provided, use it and skip auto-retrieval
+  if (headers['Authorization']) {
+    // Remove X-Clerk-Token if it exists (internal use only)
+    delete headers['X-Clerk-Token'];
+  } else {
+    // No explicit Authorization header - try to get token
+    const clerkToken = headers['X-Clerk-Token'];
+    const token = clerkToken || getAuthToken();
 
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    
+    // Attempt automatic Clerk session token retrieval if still no auth header
+    if (!headers['Authorization'] && typeof window !== 'undefined') {
+      try {
+        const clerkGlobal: any = (window as any).Clerk;
+        if (clerkGlobal?.session) {
+          // Note: session.getToken() doesn't support skipCache option
+          // This is a fallback when getToken() from useAuth() is not available
+          const autoToken = await clerkGlobal.session.getToken();
+          if (autoToken) {
+            headers['Authorization'] = `Bearer ${autoToken}`;
+          }
+        }
+      } catch (autoErr) {
+        // Silent – fallback to unauthenticated request / legacy token
+        console.warn('Clerk auto-token retrieval failed (non-blocking).', (autoErr as Error)?.message);
+      }
+    }
+    
+    // Remove X-Clerk-Token from headers if it exists (internal use only)
+    delete headers['X-Clerk-Token'];
   }
-  
-  // Remove X-Clerk-Token from headers if it exists (internal use only)
-  delete headers['X-Clerk-Token'];
 
   try {
     const response = await fetch(`${API_URL}${endpoint}`, {
@@ -714,7 +739,7 @@ export const profileAPI = {
     return fetchAPI('/profile');
   },
   async updateProfile(data: Record<string, unknown>) {
-    return fetchAPI('/users/profile', {
+    return fetchAPI('/profile', {
       method: 'PUT',
       body: JSON.stringify(data),
     });
@@ -724,6 +749,25 @@ export const profileAPI = {
       method: 'PUT',
       body: JSON.stringify({ currentPassword, newPassword }),
     });
+  },
+};
+
+// Users Sync API (self-healing trigger)
+export const usersAPI = {
+  async sync(token?: string) {
+    const headers = token ? { 'Authorization': `Bearer ${token}` } : undefined
+    return fetchAPI('/users/sync', { 
+      method: 'POST',
+      headers 
+    })
+  },
+  async dualSync(payload: Record<string, unknown>, token?: string) {
+    const headers = token ? { 'Authorization': `Bearer ${token}` } : undefined
+    return fetchAPI('/users/dual-sync', { 
+      method: 'POST', 
+      body: JSON.stringify(payload),
+      headers
+    })
   },
 };
 

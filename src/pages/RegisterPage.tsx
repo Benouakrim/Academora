@@ -1,8 +1,8 @@
 import { ComponentType, FormEvent, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Building, GraduationCap, Landmark, MinusCircle, Plus, ShieldCheck, Sparkles, Users } from 'lucide-react'
-import { useAuth } from '@clerk/clerk-react'
-import { onboardingAPI } from '../lib/api'
+import { useAuth, useUser } from '@clerk/clerk-react'
+import { onboardingAPI, usersAPI } from '../lib/api'
 
 const classNames = (...classes: (string | false | null | undefined)[]) => classes.filter(Boolean).join(' ')
 
@@ -440,7 +440,8 @@ Object.values(CONTACT_GROUP_CONFIG).forEach((config) => {
 
 export default function RegisterPage() {
   const navigate = useNavigate()
-  const { isSignedIn, isLoaded } = useAuth()
+  const { isSignedIn, isLoaded, getToken } = useAuth()
+  const { user: clerkUser } = useUser()
   const [searchParams] = useSearchParams()
   const accountTypeParam = (searchParams.get('type') || '').toLowerCase() as AccountTypeKey | ''
   const selectedType = useMemo(() => ACCOUNT_TYPE_CONFIG[accountTypeParam as AccountTypeKey], [accountTypeParam])
@@ -511,38 +512,45 @@ export default function RegisterPage() {
 
     try {
       const storedContact = localStorage.getItem('academora:pendingSignUpContact')
-      if (!storedContact) {
-        setPrefilledContact(true)
-        return
-      }
-      const parsed = JSON.parse(storedContact) as {
-        type?: string
-        email?: string
-        phone?: string
-      }
+      const parsed = storedContact ? (JSON.parse(storedContact) as { type?: string; email?: string; phone?: string }) : {}
+
+      const clerkEmail = clerkUser?.primaryEmailAddress?.emailAddress || clerkUser?.emailAddresses?.[0]?.emailAddress
+      const clerkFirst = clerkUser?.firstName || ''
+      const clerkLast = clerkUser?.lastName || ''
+
       setFormData((prev) => {
         const next = { ...prev }
-        if (parsed.email) {
-          if (!next.email) next.email = parsed.email
-          if (!next.contactEmail) next.contactEmail = parsed.email
+        // Email
+        const emailToUse = parsed.email || clerkEmail || ''
+        if (emailToUse) {
+          if (!next.email) next.email = emailToUse
+          if (!next.contactEmail) next.contactEmail = emailToUse
         }
+        // Phone
         if (parsed.phone) {
           if (!next.contactPhone) next.contactPhone = parsed.phone
           if (!next.phone) next.phone = parsed.phone
         }
+        // Names
+        if (clerkFirst && !next.givenName) next.givenName = clerkFirst
+        if (clerkLast && !next.familyName) next.familyName = clerkLast
+        if (!next.contactGivenName && clerkFirst) next.contactGivenName = clerkFirst
+        if (!next.contactFamilyName && clerkLast) next.contactFamilyName = clerkLast
         return next
       })
       setContactFieldCounts((prev) => {
         if (!selectedType) return prev
         const nextCounts = { ...prev }
-        if (parsed.email) {
+        const haveEmail = parsed.email || clerkEmail
+        const havePhone = parsed.phone
+        if (haveEmail) {
           if (selectedType.id === 'individual') {
             nextCounts.individualEmail = Math.max(prev.individualEmail, 1)
           } else if (selectedType.id === 'institution') {
             nextCounts.institutionEmail = Math.max(prev.institutionEmail, 1)
           }
         }
-        if (parsed.phone) {
+        if (havePhone) {
           if (selectedType.id === 'individual') {
             nextCounts.individualPhone = Math.max(prev.individualPhone, 1)
           } else if (selectedType.id === 'institution') {
@@ -561,7 +569,7 @@ export default function RegisterPage() {
         console.warn('Unable to clear pending sign-up contact storage', cleanupError)
       }
     }
-  }, [prefilledContact, selectedType])
+  }, [prefilledContact, selectedType, clerkUser])
 
   const handleFieldChange = (name: string, value: string) => {
     setError(null)
@@ -636,7 +644,7 @@ export default function RegisterPage() {
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
-    if (!selectedType || !steps.length || !currentStep) {
+    if (!selectedType || !steps.length || !currentStep || !clerkUser) {
       navigate('/signup')
       return
     }
@@ -658,20 +666,22 @@ export default function RegisterPage() {
     setSuccess(false)
     setSubmissionNote(null)
 
-    try {
-      const normalizedAnswers: Record<string, string> = { ...formData }
-      const useCaseRaw = formData.useCases
-      if (useCaseRaw !== undefined) {
-        const selectedUseCases = parseMultiSelectValue(useCaseRaw)
-        if (selectedUseCases.length > 0) {
-          const readable = selectedUseCases
-            .map((value) => INSTITUTION_USE_CASE_OPTIONS.find((option) => option.value === value)?.label || value)
-            .join(', ')
-          normalizedAnswers.useCases = readable
-        } else {
-          normalizedAnswers.useCases = ''
+    const submitOnce = async () => {
+      try {
+        const normalizedAnswers: Record<string, string> = { ...formData }
+        const useCaseRaw = formData.useCases as string | undefined
+        
+        if (useCaseRaw !== undefined) {
+          const selectedUseCases = parseMultiSelectValue(useCaseRaw)
+          if (selectedUseCases.length > 0) {
+            const readable = selectedUseCases
+              .map((value) => INSTITUTION_USE_CASE_OPTIONS.find((option) => option.value === value)?.label || value)
+              .join(', ')
+            normalizedAnswers.useCases = readable
+          } else {
+            normalizedAnswers.useCases = ''
+          }
         }
-      }
 
       const submissionPayload = {
         accountType: selectedType.id,
@@ -686,6 +696,8 @@ export default function RegisterPage() {
       if (typeof window !== 'undefined') {
         try {
           localStorage.setItem('academora:lastOnboarding', JSON.stringify(submissionPayload))
+          // Mark onboarding completion timestamp to prevent immediate redirect loops
+          localStorage.setItem('academora:onboardingComplete', Date.now().toString())
         } catch (storageError) {
           console.warn('Unable to persist onboarding snapshot', storageError)
         }
@@ -696,11 +708,100 @@ export default function RegisterPage() {
       }
 
       setSuccess(true)
+
+      // Dual-write profile + contact data to Clerk + Neon
+      try {
+        // Wait a bit to ensure session is fully established
+        await new Promise(resolve => setTimeout(resolve, 200))
+        // Explicitly get the token before making the API call
+        let token = await getToken({ skipCache: true })
+        // Retry once if token is not available (session might still be initializing)
+        if (!token) {
+          await new Promise(resolve => setTimeout(resolve, 300))
+          token = await getToken({ skipCache: true })
+        }
+        if (!token) {
+          console.error('[RegisterPage] No Clerk token available for dual-sync after retries')
+          throw new Error('Authentication token not available')
+        }
+
+        const firstName = selectedType.id === 'individual' ? normalizedAnswers.givenName : normalizedAnswers.contactGivenName
+        const lastName = selectedType.id === 'individual' ? normalizedAnswers.familyName : normalizedAnswers.contactFamilyName
+        const primaryEmail = selectedType.id === 'individual' ? normalizedAnswers.email : normalizedAnswers.contactEmail
+        const emailExtraKeys = selectedType.id === 'individual'
+          ? ['emailExtra1', 'emailExtra2']
+          : ['contactEmailExtra1', 'contactEmailExtra2', 'contactEmailExtra3', 'contactEmailExtra4']
+        const emails = emailExtraKeys
+          .map(k => normalizedAnswers[k])
+          .filter(v => v && v.trim() && v !== primaryEmail)
+        const phoneKeys = selectedType.id === 'individual'
+          ? ['phone', 'phoneExtra1', 'phoneExtra2']
+          : ['contactPhone', 'contactPhoneExtra1', 'contactPhoneExtra2', 'contactPhoneExtra3', 'contactPhoneExtra4']
+        const phoneNumbers = phoneKeys
+          .map(k => normalizedAnswers[k])
+          .filter(v => v && v.trim())
+        const dualPayload: any = {
+          firstName,
+          lastName,
+          primaryEmail,
+          emails,
+          phoneNumbers,
+          accountType: selectedType.id,
+          focusArea: normalizedAnswers.focusArea || undefined,
+          personaRole: normalizedAnswers.role || undefined,
+          organizationName: normalizedAnswers.organizationName || undefined,
+          organizationType: normalizedAnswers.organizationType || undefined,
+          // Include dateOfBirth directly in payload for syncing to database
+          dateOfBirth: normalizedAnswers.dateOfBirth || normalizedAnswers.contactDateOfBirth || undefined,
+          onboardingComplete: true,
+          metadata: {
+            ...(normalizedAnswers.dateOfBirth && { dateOfBirth: normalizedAnswers.dateOfBirth }),
+            ...(normalizedAnswers.country && { country: normalizedAnswers.country }),
+            ...(normalizedAnswers.preferredLanguage && { preferredLanguage: normalizedAnswers.preferredLanguage }),
+          }
+        }
+        
+        // Pass token explicitly to ensure authentication
+        await usersAPI.dualSync(dualPayload, token)
+      } catch (dualErr: any) {
+        console.warn('Dual-sync after onboarding failed:', dualErr?.message || dualErr)
+        try {
+          // Try fallback sync with explicit token
+          const token = await getToken({ skipCache: true })
+          if (token) {
+            await usersAPI.sync(token)
+          } else {
+            console.warn('[RegisterPage] No token available for fallback sync')
+          }
+        } catch (syncErr) {
+          console.warn('Fallback sync also failed:', syncErr)
+        }
+      }
+
+      // Redirect to dashboard after a short delay to allow sync to complete
       setTimeout(() => {
         navigate('/dashboard')
       }, 1200)
-    } catch (submissionError: any) {
-      setError(submissionError?.message || 'Something went wrong while creating your account.')
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred'
+        console.error('Onboarding submission error:', error)
+        setError(errorMessage)
+        throw error
+      }
+    }
+
+    try {
+      await submitOnce()
+    } catch (firstError: any) {
+      console.error('First submission attempt failed:', firstError)
+      // Simple retry after short delay for race conditions / transient locks
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+      try {
+        await submitOnce()
+      } catch (secondError: any) {
+        console.error('Second submission attempt failed:', secondError)
+        setError('We\'re wrapping up your account setup. Please try clicking Finish again in a moment.')
+      }
     } finally {
       setIsSubmitting(false)
     }
@@ -806,7 +907,7 @@ export default function RegisterPage() {
             <div className="mt-6 grid gap-5 md:grid-cols-2">
               {currentFields.map((field) => {
                 const fieldValue = formData[field.name] || ''
-                const isDateField = field.type === 'date'
+                const isDateField = field.component !== 'select' && field.component !== 'textarea' && field.component !== 'multiselect' && field.type === 'date'
                 const contactGroup = field.group
                 const contactConfig = contactGroup ? CONTACT_GROUP_CONFIG[contactGroup] : null
                 const activeCount = contactGroup ? contactFieldCounts[contactGroup] : null

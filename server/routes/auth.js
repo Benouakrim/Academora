@@ -161,7 +161,7 @@ router.get('/me', requireUser, async (req, res) => {
       id: user.id,
       email: user.email,
       role: user.role,
-      plan_id: user.planId,
+      plan: user.planId || user.plan,
       subscription_status: user.subscriptionStatus,
       clerkId: user.clerkId,
       username: user.username,

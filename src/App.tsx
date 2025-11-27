@@ -62,7 +62,7 @@ function App() {
   return (
     <ThemeProvider>
     <AccessControlProvider>
-    <Router>
+    <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Layout>
         <Suspense fallback={<div className="p-6">Loading...</div>}>
         <Routes>

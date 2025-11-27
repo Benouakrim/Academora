@@ -249,6 +249,15 @@ Access the admin dashboard at `/admin` (requires login):
 
 See deployment documentation for detailed instructions.
 
+## Authentication: Dual-Write + Self-Healing
+
+- Client triggers: after signup completion (and on profile email/phone updates), the client calls `POST /api/users/sync` in the background to write user data to Neon without blocking the UI.
+- Safety net route: `POST /api/users/sync` is protected; it reads the current Clerk session and upserts the user. Middleware `ensureSyncedUser` self-heals on protected routes.
+- Security: All writes require a valid Clerk session (via `@clerk/express` `requireAuth`). Users can only modify their own records; the server infers identity from the session.
+- Idempotency: Database writes are idempotent using Postgres `ON CONFLICT (clerk_id) DO UPDATE` in the DAL so repeated calls never create duplicates, only update.
+
+Quick client utility (optional): `ensureUserExists({ force?, ttlMinutes? })` in `src/lib/user/ensureUserExists.ts` triggers a sync and sets a short-lived cookie to avoid repeated calls on every page view.
+
 ## License
 
 MIT

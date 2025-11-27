@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '@clerk/clerk-react';
 import { referralsAPI } from '../lib/api';
 import { motion } from 'framer-motion';
 import {
@@ -53,15 +54,16 @@ const ReferralDashboard: React.FC = () => {
   const [referrals, setReferrals] = useState<Referral[]>([]);
   const [rewards, setRewards] = useState<Reward[]>([]);
 
-  // Get token from localStorage
-  const getToken = () => localStorage.getItem('token');
+  // Get token from Clerk (fresh token each time)
+  const { getToken } = useAuth();
 
   useEffect(() => {
     fetchReferralData();
   }, []);
 
   const fetchReferralData = async () => {
-    const token = getToken();
+    // Get fresh token right before API call (tokens expire quickly)
+    const token = await getToken({ skipCache: true });
     if (!token) {
       setError('Please log in to view your referral dashboard');
       setLoading(false);

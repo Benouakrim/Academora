@@ -8,7 +8,9 @@ import { notFoundHandler, errorHandler } from './middleware/errorHandler.js';
 import { parseUserToken } from './middleware/auth.js';
 
 import authRoutes from './routes/auth.js';
-import clerkWebhookRoutes from './routes/clerkWebhook.js';
+// Webhook routes removed in favor of dual-write + self-healing
+import usersSyncRoutes from './routes/usersSync.js';
+import usersDualSyncRoutes from './routes/usersDualSync.js';
 import blogRoutes from './routes/blog.js';
 import orientationRoutes from './routes/orientation.js';
 import adminRoutes from './routes/admin.js';
@@ -65,7 +67,9 @@ export function createApp() {
     app.use(Sentry.Handlers.requestHandler());
   }
 
-  // Body parsing
+  // Webhooks removed; proceed to JSON body parsing
+
+  // Body parsing (after webhook routes that need raw body)
   app.use(express.json({ limit: '1mb' }));
 
   // Rate limiting for all API routes
@@ -83,9 +87,6 @@ export function createApp() {
     res.json({ status: 'ok', message: 'AcademOra API is running' });
   });
 
-  // Clerk webhook (must be before Clerk middleware to avoid authentication)
-  app.use('/api', clerkWebhookRoutes);
-
   // Routes
   // Note: Legacy auth routes are deprecated - use Clerk for authentication
   app.use('/api/auth', authLimiter, authRoutes);
@@ -98,7 +99,12 @@ export function createApp() {
   app.use('/api/user-preferences', userPreferencesRoutes);
   app.use('/api/saved-matches', savedMatchesRoutes);
   app.use('/api/reviews', reviewsRoutes);
-  app.use('/api/notifications', notificationsRoutes);
+  // Notifications can be disabled while schema/user-id mismatch is resolved
+  if (process.env.DISABLE_NOTIFICATIONS === 'true') {
+    console.warn('[Startup] Notifications disabled via DISABLE_NOTIFICATIONS env flag.');
+  } else {
+    app.use('/api/notifications', notificationsRoutes);
+  }
   app.use('/api/admin/analytics', adminAnalyticsRoutes);
   app.use('/api/users', usersPublicRoutes);
   app.use('/api/profile-sections', profileSectionsRoutes);
@@ -142,6 +148,9 @@ export function createApp() {
   app.use('/api', microContentRoutes);
   app.use('/api/billing', billingRoutes);
   app.use('/api/data', dataExportRoutes);
+  // Users sync (self-healing and dual-write helper)
+  app.use('/api/users/sync', usersSyncRoutes);
+  app.use('/api/users/dual-sync', usersDualSyncRoutes);
   // Admin article review portal
   app.use('/api/article-review', articleReviewRoutes);
   // User referral system

@@ -16,6 +16,7 @@ import {
   MessageCircle,
   Shield,
   Phone,
+  Settings,
 } from 'lucide-react'
 
 interface UserMenuProps {
@@ -34,6 +35,12 @@ const MENU_ITEMS: Array<{
     path: '/dashboard',
     icon: LayoutDashboard,
     description: 'See your overview and account activity',
+  },
+  {
+    name: 'Edit Profile',
+    path: '/dashboard?tab=settings',
+    icon: Settings,
+    description: 'Update your name, bio, and interests',
   },
   {
     name: 'Services Hub',
@@ -97,9 +104,9 @@ const QUICK_ACTIONS: Array<{ label: string; path: string; icon: LucideIcon }> = 
     icon: Shield,
   },
   {
-    label: 'Book a call',
-    path: '/our-company?tab=contact',
-    icon: Phone,
+    label: 'Account security (Clerk)',
+    path: '/account',
+    icon: Shield,
   },
 ]
 

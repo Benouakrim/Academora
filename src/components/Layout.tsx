@@ -28,10 +28,15 @@ export default function Layout({ children }: LayoutProps) {
     // Track visited paths for Dev Navigator (helps surface dynamic instances)
     if (import.meta.env.DEV) {
       registerVisitedPath(location.pathname)
-      // Trigger backend scanner (non-blocking)
+      // Trigger backend scanner (non-blocking) - throttled to once per 30 seconds
       const apiUrl = import.meta.env.VITE_API_URL as string | undefined;
       if (apiUrl) {
-        fetch(apiUrl.replace(/\/$/, '') + '/dev/scan').catch(()=>{})
+        const lastScan = sessionStorage.getItem('dev-scan-last');
+        const now = Date.now();
+        if (!lastScan || now - parseInt(lastScan, 10) > 30000) {
+          sessionStorage.setItem('dev-scan-last', now.toString());
+          fetch(apiUrl.replace(/\/$/, '') + '/dev/scan').catch(()=>{});
+        }
       }
     }
     // Check if user is admin

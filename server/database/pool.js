@@ -1,7 +1,15 @@
 import pg from 'pg';
 import dotenv from 'dotenv';
+import path from 'path';
+import fs from 'fs';
 
-dotenv.config();
+// Ensure .env is loaded even when process is started from /server directory
+const rootEnvPath = path.resolve(process.cwd(), '../.env');
+if (fs.existsSync(rootEnvPath)) {
+  dotenv.config({ path: rootEnvPath });
+} else {
+  dotenv.config();
+}
 
 const { Pool } = pg;
 

@@ -5,8 +5,9 @@ import {
   Gift, LayoutDashboard, GitCompare, Users, Building2, BarChart3, Sliders, UserCog
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { useUser, useAuth, UserButton } from '@clerk/clerk-react'
+import { useUser, useAuth, useClerk } from '@clerk/clerk-react'
 import { authAPI, staticPagesAPI, notificationsAPI } from '../lib/api'
+import { verifyAndHealUser } from '../lib/user/verifyAndHeal'
 import LanguageSwitcher from './LanguageSwitcher'
 import { motion, AnimatePresence } from 'framer-motion'
 import LogoutConfirmDialog from './LogoutConfirmDialog'
@@ -61,7 +62,8 @@ const PERMANENT_FEATURES = [
 export default function Navbar({ onAdminMenuToggle, showAdminMenu, onUserMenuToggle, showUserMenu }: NavbarProps = {}) {
   const { t } = useTranslation()
   const { user: clerkUser, isLoaded: isUserLoaded } = useUser()
-  const { getToken } = useAuth()
+  const { getToken, isSignedIn } = useAuth()
+  const { signOut } = useClerk()
   const [isOpen, setIsOpen] = useState(false)
   const [isDashboardDropdownOpen, setIsDashboardDropdownOpen] = useState(false)
   const [isAdminDropdownOpen, setIsAdminDropdownOpen] = useState(false)
@@ -86,7 +88,7 @@ export default function Navbar({ onAdminMenuToggle, showAdminMenu, onUserMenuTog
       }
 
       try {
-        const token = await getToken()
+        const token = await getToken({ skipCache: true })
         const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
         const response = await fetch(`${API_URL}/auth/me`, {
           headers: {
@@ -135,46 +137,102 @@ export default function Navbar({ onAdminMenuToggle, showAdminMenu, onUserMenuTog
     let mounted = true
     async function load() {
       try {
-        if (!clerkUser || !isUserLoaded) { 
+        // Only poll if user is signed in and loaded
+        if (!clerkUser || !isUserLoaded || !isSignedIn) { 
           setUnreadCount(0)
           setNotifications([])
           return 
         }
         
-        const token = await getToken()
-        if (!token) return
-
-        // Fetch notifications with Clerk token
+        // Fetch notifications with Clerk token - get fresh token for each call
         const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
-        const [{ count }, list] = await Promise.all([
-          fetch(`${API_URL}/notifications/unread-count`, {
+        
+        const fetchWithAuth = async (url: string, retryCount: number = 0): Promise<any> => {
+          // Get fresh token right before each API call (tokens expire quickly)
+          // Use skipCache to force Clerk to refresh token using refresh cookie
+          const token = await getToken({ skipCache: true })
+          if (!token) {
+            console.debug('No auth token available for notifications')
+            return null
+          }
+          
+          // Check if token is expired (Clerk might return expired token if refresh cookie is missing)
+          try {
+            const parts = token.split('.')
+            if (parts.length === 3) {
+              const payload = JSON.parse(atob(parts[1]))
+              if (payload.exp) {
+                const expiration = payload.exp * 1000 // Convert to milliseconds
+                const now = Date.now()
+                if (expiration <= now) {
+                  console.debug('Token is expired, skipping request (will retry on next interval)')
+                  return null
+                }
+              }
+            }
+          } catch (e) {
+            // If we can't parse token, continue anyway (might be valid)
+            console.debug('Could not parse token expiration, continuing...')
+          }
+          
+          const response = await fetch(url, {
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json',
             },
-          }).then(r => r.json()).then(r => ({ count: r.count || 0 })),
-          fetch(`${API_URL}/notifications`, {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-          }).then(r => r.json()).then(r => r || []),
+          })
+          
+          // Handle 401/403 - retry once with fresh token if we haven't retried yet
+          if ((response.status === 401 || response.status === 403) && retryCount === 0) {
+            console.debug('Auth failed for notifications, retrying with fresh token...')
+            // Small delay before retry
+            await new Promise(resolve => setTimeout(resolve, 100))
+            return fetchWithAuth(url, retryCount + 1)
+          }
+          
+          // Handle 401/403 after retry - give up and wait for next interval
+          if (response.status === 401 || response.status === 403) {
+            console.debug('Auth failed for notifications after retry, will retry on next interval')
+            return null
+          }
+          
+          // Handle rate limiting
+          if (response.status === 429) {
+            console.warn('Rate limited on notifications endpoint')
+            return null
+          }
+          
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`)
+          }
+          
+          return response.json()
+        }
+
+        const [countData, listData] = await Promise.all([
+          fetchWithAuth(`${API_URL}/notifications/unread-count`),
+          fetchWithAuth(`${API_URL}/notifications`),
         ])
         
         if (!mounted) return
-        setUnreadCount(Number(count || 0))
-        setNotifications(Array.isArray(list) ? list.slice(0, 10) : [])
+        
+        if (countData) {
+          setUnreadCount(Number(countData.count || 0))
+        }
+        
+        if (listData && Array.isArray(listData)) {
+          setNotifications(listData.slice(0, 10))
+        }
       } catch (err) {
         if (!mounted) return
         console.warn('Notifications unavailable:', err)
-        setUnreadCount(0)
-        setNotifications([])
+        // Don't clear counts on error - keep last known state
       }
     }
     load()
     const intervalId = setInterval(load, 15000)
     return () => { mounted = false; clearInterval(intervalId) }
-  }, [clerkUser, isUserLoaded, getToken])
+  }, [clerkUser, isUserLoaded, isSignedIn, getToken])
 
   // Note: Clerk handles session management automatically - no need for storage listeners
 
@@ -182,11 +240,28 @@ export default function Navbar({ onAdminMenuToggle, showAdminMenu, onUserMenuTog
     setShowLogoutConfirm(true)
   }
 
-  const confirmSignOut = () => {
+  const confirmSignOut = async () => {
     setShowLogoutConfirm(false)
-    // Clerk's UserButton handles logout, but we can also call signOut programmatically
-    // The UserButton component will handle this automatically
-    navigate('/')
+    try {
+      // Skip verification before logout - not needed and can cause delays
+      // Just clear cache and sign out immediately
+      
+      // Clear cached user data on logout
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.removeItem('academora_user_cache')
+        } catch (e) {
+          // Ignore localStorage errors
+        }
+      }
+      
+      await signOut()
+      navigate('/', { replace: true })
+    } catch (error) {
+      console.error('Sign out error:', error)
+      // Still navigate even if signOut fails
+      navigate('/', { replace: true })
+    }
   }
 
   const cancelSignOut = () => {
@@ -341,7 +416,7 @@ export default function Navbar({ onAdminMenuToggle, showAdminMenu, onUserMenuTog
                         <button 
                           className="text-xs text-[var(--color-accent-secondary)] hover:text-[var(--color-accent-primary)] transition-colors" 
                           onClick={async()=>{ 
-                            const token = await getToken()
+                            const token = await getToken({ skipCache: true })
                             if (token) {
                               const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
                               await fetch(`${API_URL}/notifications/mark-all-read`, {
@@ -395,7 +470,7 @@ export default function Navbar({ onAdminMenuToggle, showAdminMenu, onUserMenuTog
               </div>
             )}
             
-            {clerkUser && (
+            {clerkUser && isSignedIn && (
               <div
                 className="relative"
                 onMouseEnter={() => setIsDashboardDropdownOpen(true)}
@@ -461,6 +536,17 @@ export default function Navbar({ onAdminMenuToggle, showAdminMenu, onUserMenuTog
                           <Gift className="h-4 w-4" />
                           <span className="text-sm font-semibold">Referrals</span>
                         </Link>
+                        <div className="border-t border-[var(--color-border-secondary)] my-1" />
+                        <button
+                          onClick={() => {
+                            setIsDashboardDropdownOpen(false)
+                            handleSignOut()
+                          }}
+                          className="flex items-center gap-3 px-4 py-3 text-[var(--color-text-secondary)] hover:text-red-500 hover:bg-red-500/10 transition-all duration-200 w-full text-left"
+                        >
+                          <LogOut className="h-4 w-4" />
+                          <span className="text-sm font-semibold">Sign Out</span>
+                        </button>
                       </div>
                     </motion.div>
                   )}
@@ -554,18 +640,7 @@ export default function Navbar({ onAdminMenuToggle, showAdminMenu, onUserMenuTog
               </div>
             )}
 
-            {clerkUser ? (
-              // Use Clerk's UserButton component for user menu and logout
-              <UserButton
-                afterSignOutUrl="/"
-                appearance={{
-                  elements: {
-                    avatarBox: "w-10 h-10",
-                    userButtonPopoverCard: "bg-[var(--color-bg-secondary)] backdrop-blur-xl border border-[var(--color-border-secondary)]",
-                  },
-                }}
-              />
-            ) : (
+            {!clerkUser && (
               <>
                 <motion.div
                   whileHover={{ scale: 1.05 }}
@@ -672,7 +747,7 @@ export default function Navbar({ onAdminMenuToggle, showAdminMenu, onUserMenuTog
 
               <div className="pt-3 border-t border-gray-800/50 mt-3">
                 {/* User Actions */}
-                {user ? (
+                {clerkUser && isSignedIn ? (
                   <>
                     {/* Dashboard Menu */}
                     <motion.div

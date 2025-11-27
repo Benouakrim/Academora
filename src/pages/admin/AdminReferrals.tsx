@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '@clerk/clerk-react';
 import {
   Users,
   Gift,
@@ -58,9 +59,9 @@ interface ReferralSettings {
 const AdminReferrals: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'referrals' | 'codes' | 'settings'>('overview');
-
-  // Get token from localStorage
-  const getToken = () => localStorage.getItem('token');
+  
+  // Get token from Clerk (fresh token each time)
+  const { getToken } = useAuth();
 
   // Overview state
   const [stats, setStats] = useState<Stats | null>(null);
@@ -93,7 +94,8 @@ const AdminReferrals: React.FC = () => {
   }, [activeTab, referralsPage, searchTerm, statusFilter]);
 
   const fetchOverviewData = async () => {
-    const token = getToken();
+    // Get fresh token right before API call (tokens expire quickly)
+    const token = await getToken({ skipCache: true });
     if (!token) return;
 
     try {
@@ -117,7 +119,8 @@ const AdminReferrals: React.FC = () => {
   };
 
   const fetchReferrals = async () => {
-    const token = getToken();
+    // Get fresh token right before API call (tokens expire quickly)
+    const token = await getToken({ skipCache: true });
     if (!token) return;
 
     try {
@@ -149,7 +152,8 @@ const AdminReferrals: React.FC = () => {
   };
 
   const fetchCodes = async () => {
-    const token = getToken();
+    // Get fresh token right before API call (tokens expire quickly)
+    const token = await getToken({ skipCache: true });
     if (!token) return;
 
     try {
@@ -172,7 +176,8 @@ const AdminReferrals: React.FC = () => {
   };
 
   const fetchSettings = async () => {
-    const token = getToken();
+    // Get fresh token right before API call (tokens expire quickly)
+    const token = await getToken({ skipCache: true });
     if (!token) return;
 
     try {
@@ -195,7 +200,8 @@ const AdminReferrals: React.FC = () => {
   };
 
   const toggleCodeStatus = async (code: string, currentStatus: boolean) => {
-    const token = getToken();
+    // Get fresh token right before API call (tokens expire quickly)
+    const token = await getToken({ skipCache: true });
     if (!token) return;
 
     try {
@@ -217,7 +223,8 @@ const AdminReferrals: React.FC = () => {
   };
 
   const saveSettings = async () => {
-    const token = getToken();
+    // Get fresh token right before API call (tokens expire quickly)
+    const token = await getToken({ skipCache: true });
     if (!token || !settings) return;
 
     try {
